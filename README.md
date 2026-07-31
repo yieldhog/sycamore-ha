@@ -60,11 +60,18 @@ School**. You'll be asked for:
 
 If you leave Family ID blank, you can add students by hand (Student ID + display name).
 
-**Options** (gear icon on the integration): poll interval (minutes, min 5), the focus
-window (days) used by the *Upcoming work* sensor, and toggles for the **Attendance** and
-**Lunch** sensors — turning one off stops the coordinator from polling that endpoint and
-removes its entities. Every other sensor can be enabled or disabled individually from its
-own entity settings in Home Assistant.
+**Options** (gear icon on the integration):
+
+- **Update interval** — how often to poll Sycamore, in minutes (minimum 5).
+- **Focus window** — how many days ahead to look, `1`–`31`, **default 7**. This is the
+  "next N days" horizon: the *Upcoming work* sensor reports the assignments due within
+  this window (its count is the state; the assignments are listed in its attributes).
+  Set it to `14` for a two-week view, and so on.
+- **Attendance** and **Lunch** toggles — turning one off stops the coordinator from
+  polling that endpoint and removes its entities.
+
+Every other sensor can be enabled or disabled individually from its own entity settings
+in Home Assistant.
 
 ## Entities
 
@@ -75,7 +82,7 @@ Per student (device):
 | `<Class>` | sensor | Letter grade; attrs: `percent`, `trend`, `updated` |
 | `<Class> percent` | sensor | Numeric grade `%` (`measurement` state class → long-term history/graphs) |
 | Missing work | sensor | Count of missing assignments |
-| Upcoming work | sensor | Assignments due within the focus window |
+| Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default) |
 | Attendance events | sensor | Count of attendance records |
 | Has missing work | binary_sensor | `on` when anything is missing |
 | Test within 24 hours | binary_sensor | `on` when a test/quiz is due within a day |
