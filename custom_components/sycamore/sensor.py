@@ -39,6 +39,7 @@ async def async_setup_entry(
         name = student["name"]
         entities.append(SycamoreMissingCountSensor(coordinator, sid, name))
         entities.append(SycamoreUpcomingCountSensor(coordinator, sid, name))
+        entities.append(SycamoreUpcomingTestsSensor(coordinator, sid, name))
         if coordinator.attendance_enabled:
             entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
     if coordinator.school_id and coordinator.lunch_enabled:
@@ -217,8 +218,52 @@ class SycamoreUpcomingCountSensor(_StudentCountSensor):
         ]
         return {
             "assignments": [
-                {"title": i["title"], "subject": i["subject"], "due": i["due"].isoformat()}
+                {
+                    "title": i["title"],
+                    "subject": i["subject"],
+                    "due": i["due"].isoformat(),
+                    "is_test": i["is_test"],
+                    "kind": i["kind"],
+                }
                 for i in items
+            ]
+        }
+
+
+class SycamoreUpcomingTestsSensor(_StudentCountSensor):
+    """Number of tests/quizzes due within the focus window.
+
+    Complements the fixed 24-hour ``test_within_24h`` binary sensor with the
+    configurable "next N days" horizon, and lists each item by class so it can
+    drive a calendar.
+    """
+
+    _slug = "upcoming_tests"
+    _attr_translation_key = "upcoming_tests"
+    _attr_icon = "mdi:clipboard-alert-outline"
+
+    def _tests(self) -> list[dict[str, Any]]:
+        return [
+            hw
+            for hw in self.student_data.get(DATA_HOMEWORK, [])
+            if hw["in_focus"] and hw["is_test"]
+        ]
+
+    @property
+    def native_value(self) -> int:
+        return len(self._tests())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "tests": [
+                {
+                    "title": i["title"],
+                    "subject": i["subject"],
+                    "due": i["due"].isoformat(),
+                    "kind": i["kind"],
+                }
+                for i in self._tests()
             ]
         }
 

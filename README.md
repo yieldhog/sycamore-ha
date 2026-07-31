@@ -82,7 +82,8 @@ Per student (device):
 | `<Class>` | sensor | Letter grade; attrs: `percent`, `trend`, `updated` |
 | `<Class> percent` | sensor | Numeric grade `%` (`measurement` state class → long-term history/graphs) |
 | Missing work | sensor | Count of missing assignments |
-| Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default) |
+| Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default); `assignments` attr lists them by class with an `is_test`/`kind` flag |
+| Upcoming tests | sensor | Count of tests/quizzes due within the focus window; `tests` attr lists them by class (title, subject, due, kind) |
 | Attendance events | sensor | Count of attendance records |
 | Has missing work | binary_sensor | `on` when anything is missing |
 | Test within 24 hours | binary_sensor | `on` when a test/quiz is due within a day |

@@ -88,6 +88,18 @@ async def test_count_and_binary_entities(hass: HomeAssistant):
     assert hass.states.get("sensor.jane_upcoming_work").state == "1"
     assert hass.states.get("sensor.jane_attendance_events").state == "1"
 
+    # The one upcoming item is a quiz, so it counts as upcoming work AND as an
+    # upcoming test, and is labelled as a test in the upcoming-work list.
+    upcoming = hass.states.get("sensor.jane_upcoming_work")
+    assert upcoming.attributes["assignments"][0]["is_test"] is True
+    assert upcoming.attributes["assignments"][0]["kind"] == "Quiz"
+    assert upcoming.attributes["assignments"][0]["subject"] == "Mathematics"
+
+    tests = hass.states.get("sensor.jane_upcoming_tests")
+    assert tests.state == "1"
+    assert tests.attributes["tests"][0]["kind"] == "Quiz"
+    assert tests.attributes["tests"][0]["subject"] == "Mathematics"
+
     assert hass.states.get("binary_sensor.jane_has_missing_work").state == "on"
     assert hass.states.get("binary_sensor.jane_test_within_24_hours").state == "on"
 

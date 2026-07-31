@@ -68,6 +68,7 @@
     "sensor": {
       "missing_work": { "name": "Missing work" },
       "upcoming_work": { "name": "Upcoming work" },
+      "upcoming_tests": { "name": "Upcoming tests" },
       "attendance": { "name": "Attendance events" },
       "todays_lunch": { "name": "Today's lunch" }
     },
