@@ -143,11 +143,6 @@ calendar.
 
 See [`ROADMAP.md`](ROADMAP.md) for the full, prioritized list.
 
-## Credits
-
-Grew out of [`sycamore-dash`][dash], a self-hosted family grades dashboard and e-ink
-display. This integration extracts its data layer into native Home Assistant.
-
 [sycamore]: https://sycamoreleaf.com/products/sycamore-school/
 [sycamore-api]: https://github.com/SycamoreEducation/SycamoreSchoolAPI
 [dash]: https://github.com/yieldhog/sycamore-dash
