@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sycamore.api import (
     SycamoreApiError,
@@ -148,3 +149,113 @@ def test_api_error_is_connection_error():
     degrades gracefully instead of crashing the refresh.
     """
     assert issubclass(SycamoreApiError, SycamoreConnectionError)
+
+
+async def test_already_configured(hass: HomeAssistant):
+    """Re-adding the same family aborts as already_configured."""
+    existing = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="family-647150",
+        data={"token": "tok", "family_id": "647150", "school_id": None, "students": []},
+    )
+    existing.add_to_hass(hass)
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_family_students = AsyncMock(
+            return_value=[{"ID": "111", "FirstName": "Jane", "LastName": "Doe"}]
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok", "family_id": "647150"}
+        )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_manual_add_another(hass: HomeAssistant):
+    """The manual step loops with add_another, then makes a multi-student entry."""
+    with patch("custom_components.sycamore.config_flow.SycamoreClient"), patch(
+        "custom_components.sycamore.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok"}
+        )
+        assert result["step_id"] == "manual"
+        # First student, ask for another -> back to the manual form.
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"id": "1", "name": "Ann", "add_another": True}
+        )
+        assert result["step_id"] == "manual"
+        # Second student, finish.
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"id": "2", "name": "Bob", "add_another": False}
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["students"] == [
+        {"id": "1", "name": "Ann"},
+        {"id": "2", "name": "Bob"},
+    ]
+
+
+async def test_reauth_success(hass: HomeAssistant):
+    """Reauth with a valid token updates the entry and aborts successfully."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="family-647150",
+        data={
+            "token": "old",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.sycamore.config_flow.SycamoreClient"
+    ) as mock_cls, patch(
+        "custom_components.sycamore.async_setup_entry", return_value=True
+    ):
+        mock_cls.return_value.async_validate = AsyncMock(return_value=None)
+        result = await entry.start_reauth_flow(hass)
+        assert result["step_id"] == "reauth_confirm"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "newtok"}
+        )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data["token"] == "newtok"
+
+
+async def test_options_flow(hass: HomeAssistant):
+    """The options flow saves interval, focus window, and the toggles."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "scan_interval_minutes": 90,
+            "focus_window_days": 14,
+            "attendance_enabled": False,
+            "lunch_enabled": True,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["focus_window_days"] == 14
+    assert result["data"]["attendance_enabled"] is False
+    assert result["data"]["lunch_enabled"] is True

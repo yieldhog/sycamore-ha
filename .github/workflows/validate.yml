@@ -32,6 +32,21 @@ jobs:
           # (tracked in ROADMAP). Drop this once the brand PR is merged.
           ignore: brands
 
+  lint:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # Pinned so a new ruff release can't turn CI red without a deliberate bump.
+      - name: Install ruff
+        run: pip install ruff==0.16.1
+      - name: Ruff lint
+        run: ruff check custom_components tests
+
   tests:
     name: Tests
     runs-on: ubuntu-latest
