@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-07-31
+
+Packaging release so the Sycamore brand renders in Home Assistant. No changes to
+grades/homework/calendar behaviour.
+
+### Added
+
+- **Brand icon and logo** shipped in-repo at `custom_components/sycamore/brand/`
+  (`icon.png` 256×256, `logo.png` 512×248). Home Assistant 2026.3+ and HACS read the
+  brand from the integration's own folder; `home-assistant/brands` no longer accepts
+  custom-integration submissions (Feb 2026 Brands Proxy API).
+
+### Changed
+
+- Enabled the HACS action's brand validation (dropped the temporary `ignore: brands`).
+- Added this changelog and corrected the reported manifest version.
+
 ## [0.1.0] - 2026-07-31
 
 First stable release. A native Home Assistant integration for the Sycamore School
@@ -49,5 +66,6 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.1]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.1
 [0.1.0]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.0
 [0.1.0b1]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.0b1
