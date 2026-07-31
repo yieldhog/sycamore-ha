@@ -1,0 +1,80 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Sycamore",
+        "description": "Create an access token in Sycamore under My Organizer → Applications. Enter your Family ID to auto-discover students; leave it blank to add students by hand.",
+        "data": {
+          "token": "Access token",
+          "family_id": "Family ID (optional)",
+          "school_id": "School ID (optional, enables lunch menu)"
+        },
+        "data_description": {
+          "family_id": "Found in your Sycamore family portal. When set, students are discovered automatically.",
+          "school_id": "Only needed for the cafeteria/lunch sensor."
+        }
+      },
+      "select": {
+        "title": "Choose students",
+        "description": "Select which students to add to Home Assistant.",
+        "data": { "students": "Students" }
+      },
+      "manual": {
+        "title": "Add a student",
+        "description": "Enter a Sycamore Student ID and a display name.",
+        "data": {
+          "id": "Student ID",
+          "name": "Display name",
+          "add_another": "Add another student"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Sycamore",
+        "description": "Your Sycamore token was rejected. Enter a new access token.",
+        "data": { "token": "Access token" }
+      }
+    },
+    "error": {
+      "invalid_auth": "The access token was rejected. Check that it is valid and has the right scopes.",
+      "cannot_connect": "Could not reach Sycamore. Try again shortly.",
+      "no_students": "No students were found for that Family ID."
+    },
+    "abort": {
+      "already_configured": "This Sycamore account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sycamore options",
+        "data": {
+          "scan_interval_minutes": "Update interval (minutes)",
+          "focus_window_days": "Focus window (days)"
+        },
+        "data_description": {
+          "scan_interval_minutes": "How often to poll Sycamore. Minimum 5 minutes.",
+          "focus_window_days": "How far ahead 'upcoming work' looks."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "missing_work": { "name": "Missing work" },
+      "upcoming_work": { "name": "Upcoming work" },
+      "attendance": { "name": "Attendance events" },
+      "todays_lunch": { "name": "Today's lunch" }
+    },
+    "binary_sensor": {
+      "has_missing_work": { "name": "Has missing work" },
+      "test_within_24h": { "name": "Test within 24 hours" }
+    },
+    "calendar": {
+      "homework": { "name": "Homework" }
+    },
+    "todo": {
+      "missing_work": { "name": "Missing work" }
+    }
+  }
+}

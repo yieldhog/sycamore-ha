@@ -1,0 +1,121 @@
+"""Pure data-shaping helpers, ported from the original sycamore-dash app.
+
+These have no Home Assistant dependencies so they can be unit-tested in
+isolation and reused across platforms (sensor/calendar/todo).
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date, datetime
+
+# --- Subject name cleanup (ported from app/main.py: clean_subject_name) ---
+# Ordered so the "<Nth> Grade-" prefix is tried before the "6H " section prefix:
+# the original app's ordering let "2nd Grade-Science" match the section rule and
+# leave "Grade-Science", which its own docstring said it meant to strip whole.
+_PREFIX_RE = re.compile(r"^(.*?Grade-|\d+[a-zA-Z]+\s)")
+
+
+def clean_subject_name(raw_name: str | None) -> str:
+    """Strip '6H ' or '2nd Grade-' style prefixes without swallowing labels."""
+    if not raw_name:
+        return ""
+    return _PREFIX_RE.sub("", raw_name).strip()
+
+
+# --- HTML stripping (ported from app/main.py: strip_html_for_mqtt) ---
+_BREAKS_RE = re.compile(r"<(br|/div|/p)>")
+_TAGS_RE = re.compile(r"<.*?>")
+
+
+def strip_html(text: str | None) -> str:
+    """Remove HTML while keeping readability (breaks -> spaces, entities decoded)."""
+    if not text:
+        return ""
+    text = _BREAKS_RE.sub(" ", text)
+    clean = _TAGS_RE.sub("", text)
+    return clean.replace("&nbsp;", " ").replace("&amp;", "&").strip()
+
+
+# --- Test/quiz inference (ported from app/trmnl.py: detect_kind) ---
+# Whole-word cues matched on boundaries so "final draft"/"contest" don't trip.
+_TEST_KINDS: list[tuple[str, str]] = [
+    (r"midterm", "Test"),
+    (r"final exam", "Test"),
+    (r"finals", "Test"),
+    (r"exam", "Test"),
+    (r"test", "Test"),
+    (r"assessment", "Test"),
+    (r"quiz(?:zes)?", "Quiz"),
+]
+
+
+def detect_kind(title: str | None) -> tuple[bool, str]:
+    """Return (is_test, label) inferring test/quiz from an assignment title."""
+    low = (title or "").lower()
+    for pattern, label in _TEST_KINDS:
+        if re.search(rf"\b{pattern}\b", low):
+            return True, label
+    return False, ""
+
+
+# --- Subject icons/abbreviations (ported from app/trmnl.py) ---
+_SUBJECT_ICONS: list[tuple[str, str]] = [
+    ("math", "mdi:calculator-variant"),
+    ("algebra", "mdi:calculator-variant"),
+    ("geometry", "mdi:calculator-variant"),
+    ("calc", "mdi:calculator-variant"),
+    ("read", "mdi:book-open-variant"),
+    ("literature", "mdi:book-open-variant"),
+    ("english", "mdi:book-open-variant"),
+    ("lang", "mdi:book-open-variant"),
+    ("spell", "mdi:book-open-variant"),
+    ("lit", "mdi:book-open-variant"),
+    ("writ", "mdi:pencil"),
+    ("essay", "mdi:pencil"),
+    ("scien", "mdi:flask"),
+    ("bio", "mdi:flask"),
+    ("chem", "mdi:flask"),
+    ("physic", "mdi:flask"),
+    ("span", "mdi:earth"),
+    ("french", "mdi:earth"),
+    ("world", "mdi:earth"),
+    ("geog", "mdi:earth"),
+    ("hist", "mdi:script-text"),
+    ("social", "mdi:script-text"),
+    ("relig", "mdi:cross"),
+    ("theo", "mdi:cross"),
+    ("bible", "mdi:cross"),
+    ("cathol", "mdi:cross"),
+    ("art", "mdi:palette"),
+    ("music", "mdi:music"),
+    ("pe", "mdi:basketball"),
+    ("physical", "mdi:basketball"),
+]
+
+
+def subject_icon(name: str | None) -> str:
+    """Return an mdi icon id for a subject name (first substring match wins)."""
+    low = (name or "").lower()
+    for key, icon in _SUBJECT_ICONS:
+        if key in low:
+            return icon
+    return "mdi:notebook"
+
+
+def parse_due_date(raw: str | None) -> date | None:
+    """Parse Sycamore's 'MM/DD/YYYY' due date, tolerating bad/empty values."""
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%m/%d/%Y").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def to_float(value: object) -> float | None:
+    """Best-effort float parse (Sycamore 'Number' fields), else None."""
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (ValueError, TypeError):
+        return None
