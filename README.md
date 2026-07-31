@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/logo.png" alt="Sycamore School" width="320">
+</p>
+
 # Sycamore School — Home Assistant integration
 
 [![hacs][hacs-badge]][hacs]
