@@ -56,7 +56,7 @@
           "lunch_enabled": "Lunch menu sensor"
         },
         "data_description": {
-          "scan_interval_minutes": "How often to poll Sycamore. Minimum 5 minutes.",
+          "scan_interval_minutes": "How often to poll Sycamore. Minimum 60 minutes (Sycamore data changes at most daily).",
           "focus_window_days": "How far ahead 'upcoming work' looks.",
           "attendance_enabled": "When off, the attendance endpoint is not polled and its sensors are removed.",
           "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed."
@@ -68,6 +68,7 @@
     "sensor": {
       "missing_work": { "name": "Missing work" },
       "upcoming_work": { "name": "Upcoming work" },
+      "upcoming_tests": { "name": "Upcoming tests" },
       "attendance": { "name": "Attendance events" },
       "todays_lunch": { "name": "Today's lunch" }
     },
@@ -76,7 +77,8 @@
       "test_within_24h": { "name": "Test within 24 hours" }
     },
     "calendar": {
-      "homework": { "name": "Homework" }
+      "homework": { "name": "Homework" },
+      "lunch": { "name": "Lunch" }
     },
     "todo": {
       "missing_work": { "name": "Missing work" }

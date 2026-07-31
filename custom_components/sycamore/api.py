@@ -141,6 +141,12 @@ class SycamoreClient:
         return self._as_list(await self._get(f"Student/{student_id}/Attendance"))
 
     # --- School-level ------------------------------------------------------
-    async def async_get_cafeteria(self, school_id: str) -> list[dict[str, Any]]:
-        """GET /School/{id}/Cafeteria (lunch menu)."""
-        return self._as_list(await self._get(f"School/{school_id}/Cafeteria"))
+    async def async_get_cafeteria(self, school_id: str) -> dict[str, Any]:
+        """GET /School/{id}/Cafeteria (lunch menu).
+
+        The payload is an object keyed by ``MM/DD/YYYY`` date, each value a list
+        of meal options — not a flat list — so return the dict as-is (an empty
+        or non-object body becomes ``{}``).
+        """
+        data = await self._get(f"School/{school_id}/Cafeteria")
+        return data if isinstance(data, dict) else {}

@@ -62,7 +62,7 @@ If you leave Family ID blank, you can add students by hand (Student ID + display
 
 **Options** (gear icon on the integration):
 
-- **Update interval** — how often to poll Sycamore, in minutes (minimum 5).
+- **Update interval** — how often to poll Sycamore, in minutes (minimum 60, default 60). Sycamore data changes at most daily, so there's no benefit to polling more often.
 - **Focus window** — how many days ahead to look, `1`–`31`, **default 7**. This is the
   "next N days" horizon: the *Upcoming work* sensor reports the assignments due within
   this window (its count is the state; the assignments are listed in its attributes).
@@ -82,14 +82,20 @@ Per student (device):
 | `<Class>` | sensor | Letter grade; attrs: `percent`, `trend`, `updated` |
 | `<Class> percent` | sensor | Numeric grade `%` (`measurement` state class → long-term history/graphs) |
 | Missing work | sensor | Count of missing assignments |
-| Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default) |
+| Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default); `assignments` attr lists them by class with an `is_test`/`kind` flag |
+| Upcoming tests | sensor | Count of tests/quizzes due within the focus window; `tests` attr lists them by class (title, subject, due, kind) |
 | Attendance events | sensor | Count of attendance records |
 | Has missing work | binary_sensor | `on` when anything is missing |
 | Test within 24 hours | binary_sensor | `on` when a test/quiz is due within a day |
 | Homework | calendar | Assignments and tests by due date |
 | Missing work | todo | Read-only checklist of missing assignments |
 
-School-level (only with a School ID): **Today's lunch** sensor.
+School-level (only with a School ID):
+
+| Entity | Platform | State |
+| --- | --- | --- |
+| Today's lunch | sensor | Today's meal names; `meals` attr = today's items, `menu` attr = the full pulled week (dates + meals) |
+| Lunch | calendar | The pulled cafeteria menu, one all-day event per day (meal names as summary, full details in the description) |
 
 ## Automation examples
 

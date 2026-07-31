@@ -28,7 +28,8 @@ Add unit tests mirroring `tests/test_init.py` (fake client → assert states).
 - [ ] **Discipline events** — `Student/{id}/Discipline_Log`; count + records.
 - [ ] **School events calendar** + "days until next day off" — school-level
       calendar endpoint (better as a `calendar` entity than a sensor).
-- [ ] **Lunch as a week calendar** — upgrade the single `todays_lunch` sensor.
+- [x] **Lunch as a week calendar** — shipped: `Lunch` calendar (one all-day event
+      per day) alongside the `todays_lunch` sensor.
 
 For each: add the fetch to `api.py`, wire into the coordinator behind the toggle,
 gate the entity in its platform, add strings/translations, and a skip-fetch test.
@@ -37,8 +38,9 @@ gate the entity in its platform, add strings/translations, and a skip-fetch test
 
 - [ ] Expand config-flow tests: reauth success, options flow, "add another"
       manual loop, `already_configured` abort.
-- [ ] Confirm the `School/{id}/Cafeteria` response shape against a real account and
-      tighten `SycamoreLunchSensor._todays_items` / `_entry_text` accordingly.
+- [x] Confirm the `School/{id}/Cafeteria` response shape against a real account —
+      confirmed it's `{MM/DD/YYYY: [{MealID, MealName, MealDesc}]}` (a dict, not a
+      list); the client + coordinator + sensor now parse that shape.
 - [ ] Consider discovering School ID (avoid asking the user) if an endpoint exposes it.
 - [ ] Add `ruff`/lint to CI.
 
