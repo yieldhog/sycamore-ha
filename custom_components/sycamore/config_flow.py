@@ -22,7 +22,12 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
-from .api import SycamoreAuthError, SycamoreClient, SycamoreConnectionError
+from .api import (
+    SycamoreApiError,
+    SycamoreAuthError,
+    SycamoreClient,
+    SycamoreConnectionError,
+)
 from .const import (
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_LUNCH,
@@ -81,6 +86,11 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                 except SycamoreAuthError:
                     errors["base"] = "invalid_auth"
+                except SycamoreApiError:
+                    # Reached Sycamore but the family list came back unusable —
+                    # usually the token lacks the Families scope. Must precede
+                    # SycamoreConnectionError since it is a subclass.
+                    errors["base"] = "family_access_denied"
                 except SycamoreConnectionError:
                     errors["base"] = "cannot_connect"
                 else:
