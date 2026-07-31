@@ -62,7 +62,7 @@ If you leave Family ID blank, you can add students by hand (Student ID + display
 
 **Options** (gear icon on the integration):
 
-- **Update interval** — how often to poll Sycamore, in minutes (minimum 5).
+- **Update interval** — how often to poll Sycamore, in minutes (minimum 60, default 60). Sycamore data changes at most daily, so there's no benefit to polling more often.
 - **Focus window** — how many days ahead to look, `1`–`31`, **default 7**. This is the
   "next N days" horizon: the *Upcoming work* sensor reports the assignments due within
   this window (its count is the state; the assignments are listed in its attributes).
