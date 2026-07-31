@@ -87,5 +87,25 @@
     "todo": {
       "missing_work": { "name": "Missing work" }
     }
+  },
+  "services": {
+    "sync_calendar": {
+      "name": "Sync calendar",
+      "description": "Mirror upcoming assignments, tests, and quizzes into a calendar (e.g. a Google calendar). Events it created are added, kept in sync, and removed when the item is cancelled; your own events are never touched.",
+      "fields": {
+        "target_calendar": {
+          "name": "Target calendar",
+          "description": "The calendar to sync events into."
+        },
+        "days": {
+          "name": "Days ahead",
+          "description": "How many days ahead to sync."
+        },
+        "prefix_student_name": {
+          "name": "Prefix student name",
+          "description": "Put the student's name at the start of each event (useful for a shared calendar)."
+        }
+      }
+    }
   }
 }

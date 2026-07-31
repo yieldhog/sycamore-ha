@@ -1,0 +1,19 @@
+sync_calendar:
+  fields:
+    target_calendar:
+      required: true
+      selector:
+        entity:
+          domain: calendar
+    days:
+      default: 14
+      selector:
+        number:
+          min: 1
+          max: 90
+          unit_of_measurement: days
+          mode: box
+    prefix_student_name:
+      default: true
+      selector:
+        boolean:
