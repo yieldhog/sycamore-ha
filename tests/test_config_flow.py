@@ -8,7 +8,11 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.sycamore.api import SycamoreAuthError, SycamoreConnectionError
+from custom_components.sycamore.api import (
+    SycamoreApiError,
+    SycamoreAuthError,
+    SycamoreConnectionError,
+)
 from custom_components.sycamore.const import DOMAIN
 
 
@@ -114,3 +118,33 @@ async def test_no_students(hass: HomeAssistant):
             result["flow_id"], {"token": "tok", "family_id": "000"}
         )
         assert result["errors"] == {"base": "no_students"}
+
+
+async def test_family_access_denied(hass: HomeAssistant):
+    """A non-auth API error during discovery maps to the scope-aware message.
+
+    This is the missing-Families-scope case: Sycamore is reachable but the
+    family list comes back unusable, which used to surface as cannot_connect.
+    """
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_family_students = AsyncMock(
+            side_effect=SycamoreApiError("HTTP 404", status_code=404)
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok", "family_id": "647150"}
+        )
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] == {"base": "family_access_denied"}
+
+
+def test_api_error_is_connection_error():
+    """SycamoreApiError must stay a ConnectionError subclass.
+
+    The coordinator only catches SycamoreConnectionError to raise UpdateFailed;
+    keeping the subclass relationship means an API/response error there still
+    degrades gracefully instead of crashing the refresh.
+    """
+    assert issubclass(SycamoreApiError, SycamoreConnectionError)

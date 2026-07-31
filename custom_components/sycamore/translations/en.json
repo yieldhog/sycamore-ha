@@ -10,7 +10,7 @@
           "school_id": "School ID (optional, enables lunch menu)"
         },
         "data_description": {
-          "family_id": "Found in your Sycamore family portal. When set, students are discovered automatically.",
+          "family_id": "Found in your Sycamore family portal. When set, students are discovered automatically. Requires the token's Families scope; if discovery fails, leave this blank to add students manually.",
           "school_id": "Only needed for the cafeteria/lunch sensor."
         }
       },
@@ -37,6 +37,7 @@
     "error": {
       "invalid_auth": "The access token was rejected. Check that it is valid and has the right scopes.",
       "cannot_connect": "Could not reach Sycamore. Try again shortly.",
+      "family_access_denied": "Couldn't read the family list. Your access token may not have the 'Families' scope — leave Family ID blank to add students manually, or enable that scope in Sycamore.",
       "no_students": "No students were found for that Family ID."
     },
     "abort": {

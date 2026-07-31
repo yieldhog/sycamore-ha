@@ -31,7 +31,24 @@ class SycamoreAuthError(SycamoreError):
 
 
 class SycamoreConnectionError(SycamoreError):
-    """Raised on transport errors or non-auth HTTP failures."""
+    """Raised when Sycamore can't be reached (transport / network error)."""
+
+
+class SycamoreApiError(SycamoreConnectionError):
+    """Sycamore was reached but the response was an error or unusable.
+
+    Distinct from a transport failure: the request got through but came back
+    with a non-auth error status or an unparseable body — which is what a
+    missing endpoint scope (e.g. no ``Families`` access) looks like. Subclasses
+    ``SycamoreConnectionError`` so existing handlers (the coordinator's
+    ``UpdateFailed`` path) still catch it; the config flow can catch it first
+    to give a scope-aware message. Carries the HTTP status code when known.
+    """
+
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        """Store the human message and the originating HTTP status (if any)."""
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class SycamoreClient:
@@ -66,13 +83,27 @@ class SycamoreClient:
         if resp.status_code == 204 or not resp.content:
             return []
         if resp.status_code >= 300:
-            raise SycamoreConnectionError(
-                f"{path} returned HTTP {resp.status_code}"
+            _LOGGER.debug(
+                "Sycamore %s returned HTTP %s: %s",
+                path,
+                resp.status_code,
+                resp.text[:200],
+            )
+            raise SycamoreApiError(
+                f"{path} returned HTTP {resp.status_code}",
+                status_code=resp.status_code,
             )
         try:
             return resp.json()
         except ValueError as err:
-            raise SycamoreConnectionError(f"Bad JSON from {path}: {err}") from err
+            _LOGGER.debug(
+                "Sycamore %s returned an unparseable body: %s",
+                path,
+                resp.text[:200],
+            )
+            raise SycamoreApiError(
+                f"Bad JSON from {path}: {err}", status_code=resp.status_code
+            ) from err
 
     @staticmethod
     def _as_list(data: Any) -> list[dict[str, Any]]:

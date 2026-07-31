@@ -55,7 +55,7 @@ School**. You'll be asked for:
 | Field | Required | Notes |
 | --- | --- | --- |
 | **Access token** | Yes | Create one in Sycamore under **My Organizer → Applications**. |
-| **Family ID** | No | When provided, students are **discovered automatically** and you just pick which to add. Find it in your family portal. |
+| **Family ID** | No | When provided, students are **discovered automatically** and you just pick which to add. Find it in your family portal. Needs the token's **Families** scope — if discovery fails, leave this blank and add students manually (per-student data uses different endpoints that don't need that scope). |
 | **School ID** | No | Only needed to enable the **Today's lunch** sensor. |
 
 If you leave Family ID blank, you can add students by hand (Student ID + display name).
