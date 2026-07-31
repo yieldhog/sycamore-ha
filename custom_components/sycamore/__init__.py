@@ -7,9 +7,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .api import SycamoreClient
-from .const import CONF_TOKEN
+from .const import CONF_CALENDAR_AUTOSYNC, CONF_TOKEN
 from .coordinator import SycamoreDataUpdateCoordinator
-from .services import async_setup_services
+from .services import async_run_autosync, async_setup_services
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -31,6 +31,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: SycamoreConfigEntry) -> 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     await async_setup_services(hass)
+
+    # Opt-in: reconcile the per-student calendar mapping after every refresh.
+    if entry.options.get(CONF_CALENDAR_AUTOSYNC):
+
+        def _autosync() -> None:
+            hass.async_create_task(async_run_autosync(hass, entry))
+
+        entry.async_on_unload(coordinator.async_add_listener(_autosync))
+        # Run once now so enabling it doesn't wait for the next poll.
+        hass.async_create_task(async_run_autosync(hass, entry))
+
     return True
 
 

@@ -145,37 +145,55 @@ automation:
 
 ## Sync assignments to a calendar
 
-The **`sycamore.sync_calendar`** service mirrors upcoming assignments, tests, and
-quizzes into a writable calendar — e.g. a Google calendar you've added to Home
-Assistant. It only manages events it created (tagged in the description), so your
-own events are never touched: new work is **added**, and if an item's due date
-changes or it's cancelled the stale event is **removed**.
+The integration can mirror upcoming assignments, tests, and quizzes into a writable
+calendar — e.g. a Google calendar you've added to Home Assistant. It only manages
+events it created (each tagged with `[sycamore-sync:<student>:<hash>]` in the
+description), so your own events are never touched: new work is **added**, and if an
+item's due date changes or it's cancelled the stale event is **removed**. Because the
+tag carries the student, **two children can safely share one calendar** — syncing one
+never disturbs the other's events.
+
+**Nothing syncs until you set it up** — you choose the calendars. The integration
+never creates calendars; the writable `calendar.*` entities come from *your* Google
+(or Local Calendar, CalDAV, …) integration.
+
+### Per-child mapping (recommended)
+
+In the integration's **Configure → Options**, each child gets a **calendar picker**
+(labelled by name). Point a child at a calendar to sync them; **leave it blank to not
+sync** that child. Then either:
+
+- turn on **"Auto-sync calendars after each refresh"** and it stays updated
+  automatically after every poll — no automation needed; or
+- leave auto-sync off and call the service yourself (below) when you want.
+
+Different kids can go to different calendars, or several can share one.
+
+### The `sycamore.sync_calendar` service (manual / power use)
 
 | Field | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `target_calendar` | Yes | — | Calendar entity to sync into (e.g. `calendar.school`). |
+| `target_calendar` | No | — | Overrides the per-child mapping for the run. If omitted, each child's mapped calendar is used. |
+| `student` | No | all | Limit to specific children (by name or id). |
 | `days` | No | 14 | How many days ahead to sync. |
 | `prefix_student_name` | No | `true` | Prefix each event with the student's name. |
 
-Run it on a schedule so new assignments appear automatically:
-
 ```yaml
+# Only needed if you leave auto-sync off. Uses each child's mapped calendar:
 automation:
-  - alias: Sync school work to Google Calendar
+  - alias: Sync school work
     trigger:
       - platform: time_pattern
         hours: "/6"
     action:
       - service: sycamore.sync_calendar
         data:
-          target_calendar: calendar.school
           days: 14
 ```
 
-Point it at a **dedicated** calendar (e.g. a "School" Google calendar) so these
-managed events stay isolated. Deletion works on any calendar that supports it
-(Google does); on calendars without delete support, new events are still added but
-stale ones are logged instead of removed.
+Deletion works on any calendar that supports it (Google does); on calendars without
+delete support, new events are still added but stale ones are logged instead of
+removed.
 
 ## Roadmap
 

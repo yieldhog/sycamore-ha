@@ -1,10 +1,15 @@
 sync_calendar:
   fields:
     target_calendar:
-      required: true
+      example: calendar.school
       selector:
         entity:
           domain: calendar
+    student:
+      example: Jane
+      selector:
+        text:
+          multiple: true
     days:
       default: 14
       selector:

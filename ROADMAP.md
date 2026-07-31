@@ -7,6 +7,11 @@ or `entity_registry_enabled_default = False`.
 
 ## Recently shipped (merged)
 
+- **Calendar sync service** — `sycamore.sync_calendar` mirrors assignments, tests,
+  and quizzes into a writable calendar; it creates new items and deletes stale ones
+  (changed due date or cancelled), only ever touching events it tagged. Reconciler
+  and full lifecycle unit-tested, and **live-validated against a real Google
+  calendar** (create → tag round-trip → delete → due-date change all confirmed).
 - **CI** — `validate.yml` runs hassfest, the HACS action, and pytest (Python 3.13);
   green on `main`.
 - **Lunch week calendar** — real `{MM/DD/YYYY: [meals]}` cafeteria shape parsed; a
@@ -53,16 +58,22 @@ gate the entity in its platform, add strings/translations, and a skip-fetch test
 
 ## 3. Calendar sync — write Sycamore items into a writable calendar
 
-Shipped. Note learned while building: HA exposes only `create_event`/`get_events`
-as calendar *services* (delete/update are frontend-websocket only), so the service
-reads/deletes through the target calendar entity's own methods — which works for
-any calendar that advertises `DELETE_EVENT`, Google included.
+Core shipped (PR #10) and live-validated against a real Google calendar. Note
+learned while building: HA exposes only `create_event`/`get_events` as calendar
+*services* (delete/update are frontend-websocket only), so the service reads and
+deletes through the target calendar entity's own methods — which works for any
+calendar that advertises `DELETE_EVENT`, Google included.
 
 - [x] Build the reconciliation service — `sycamore.sync_calendar` mirrors
       assignments/tests/quizzes into a target calendar: creates new items and
       deletes stale ones (via the calendar entity's own methods, since HA has no
       delete *service*), only touching events it tagged. Works with Google.
-- [ ] Optional auto-sync on each coordinator refresh (target stored on the entry).
+- [x] **Per-student calendar mapping + opt-in auto-sync** — each child gets a
+      calendar picker in Options (blank = don't sync); an "auto-sync after each
+      refresh" toggle (default off) reconciles automatically. Tags are
+      student-scoped (`[sycamore-sync:<student>:<hash>]`) so children can share a
+      calendar safely; the service also takes an optional `student` filter and an
+      optional `target_calendar` override.
 
 ## 4. Quality / polish
 

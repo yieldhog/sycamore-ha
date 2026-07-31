@@ -49,17 +49,22 @@
     "step": {
       "init": {
         "title": "Sycamore options",
+        "description": "Set polling and sensors below. To mirror a child's assignments/tests/quizzes into a calendar, pick a target calendar for that child (leave blank to not sync). Turn on auto-sync to keep it updated after every refresh.",
         "data": {
           "scan_interval_minutes": "Update interval (minutes)",
           "focus_window_days": "Focus window (days)",
           "attendance_enabled": "Attendance sensor",
-          "lunch_enabled": "Lunch menu sensor"
+          "lunch_enabled": "Lunch menu sensor",
+          "calendar_autosync": "Auto-sync calendars after each refresh",
+          "calendar_days": "Calendar sync window (days ahead)"
         },
         "data_description": {
           "scan_interval_minutes": "How often to poll Sycamore. Minimum 60 minutes (Sycamore data changes at most daily).",
           "focus_window_days": "How far ahead 'upcoming work' looks.",
           "attendance_enabled": "When off, the attendance endpoint is not polled and its sensors are removed.",
-          "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed."
+          "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed.",
+          "calendar_autosync": "When on, each child with a target calendar is synced automatically after every poll. When off, use the sycamore.sync_calendar service manually.",
+          "calendar_days": "How many days ahead of assignments/tests to put on the calendar."
         }
       }
     }
@@ -95,7 +100,11 @@
       "fields": {
         "target_calendar": {
           "name": "Target calendar",
-          "description": "The calendar to sync events into."
+          "description": "Calendar to sync into. Optional — if omitted, each student's calendar from the integration options is used; if given, it overrides the mapping for all selected students."
+        },
+        "student": {
+          "name": "Student(s)",
+          "description": "Limit the sync to specific students (by name or id). Leave empty for all."
         },
         "days": {
           "name": "Days ahead",

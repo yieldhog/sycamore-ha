@@ -259,3 +259,36 @@ async def test_options_flow(hass: HomeAssistant):
     assert result["data"]["focus_window_days"] == 14
     assert result["data"]["attendance_enabled"] is False
     assert result["data"]["lunch_enabled"] is True
+
+
+async def test_options_flow_calendar_mapping(hass: HomeAssistant):
+    """Per-student calendar picker (labelled by name) maps back to the id."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "scan_interval_minutes": 60,
+            "focus_window_days": 7,
+            "attendance_enabled": True,
+            "lunch_enabled": True,
+            "calendar_autosync": True,
+            "calendar_days": 21,
+            "Jane": "calendar.school",  # field is labelled by the child's name
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["calendar_autosync"] is True
+    assert result["data"]["calendar_days"] == 21
+    # The name-labelled picker is stored keyed by student id.
+    assert result["data"]["calendar_targets"] == {"111": "calendar.school"}

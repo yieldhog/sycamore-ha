@@ -12,6 +12,8 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -28,6 +30,9 @@ from .api import (
     SycamoreConnectionError,
 )
 from .const import (
+    CONF_CALENDAR_AUTOSYNC,
+    CONF_CALENDAR_DAYS,
+    CONF_CALENDAR_TARGETS,
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_LUNCH,
     CONF_FAMILY_ID,
@@ -38,6 +43,8 @@ from .const import (
     CONF_STUDENT_NAME,
     CONF_STUDENTS,
     CONF_TOKEN,
+    DEFAULT_CALENDAR_AUTOSYNC,
+    DEFAULT_CALENDAR_DAYS,
     DEFAULT_ENABLE_ATTENDANCE,
     DEFAULT_ENABLE_LUNCH,
     DEFAULT_FOCUS_WINDOW_DAYS,
@@ -52,6 +59,26 @@ def _student_label(student: dict[str, Any]) -> str:
     name = f"{student.get('FirstName', '')} {student.get('LastName', '')}".strip()
     grade = (student.get("Grade") or "").strip()
     return f"{name} ({grade})" if grade else name or str(student.get("ID", "?"))
+
+
+def _calendar_target_fields(
+    students: list[dict[str, Any]],
+) -> list[tuple[str, str]]:
+    """Return (student_id, option-field key) pairs for the calendar pickers.
+
+    The field key is the child's name so the form shows a meaningful label;
+    it's disambiguated with the id only when two students share a name.
+    """
+    counts: dict[str, int] = {}
+    for student in students:
+        counts[student[CONF_STUDENT_NAME]] = counts.get(student[CONF_STUDENT_NAME], 0) + 1
+    fields: list[tuple[str, str]] = []
+    for student in students:
+        sid = student[CONF_STUDENT_ID]
+        name = student[CONF_STUDENT_NAME]
+        key = name if counts[name] == 1 else f"{name} ({sid})"
+        fields.append((sid, key))
+    return fields
 
 
 class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -240,46 +267,85 @@ class SycamoreOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the integration options."""
+        students = self.config_entry.data.get(CONF_STUDENTS, [])
+        # Per-student calendar pickers are labelled by the child's name; map the
+        # (unique) label back to the student id when saving.
+        target_fields = _calendar_target_fields(students)
+
         if user_input is not None:
+            targets: dict[str, str] = {}
+            for sid, field_key in target_fields:
+                value = user_input.pop(field_key, None)
+                if value:
+                    targets[sid] = value
+            user_input[CONF_CALENDAR_TARGETS] = targets
             return self.async_create_entry(data=user_input)
 
         current = self.config_entry.options
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_SCAN_INTERVAL_MINUTES,
-                    default=current.get(
-                        CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=MIN_SCAN_INTERVAL_MINUTES,
-                        max=720,
-                        step=5,
-                        unit_of_measurement="min",
-                        mode=NumberSelectorMode.BOX,
-                    )
+        current_targets: dict[str, str] = current.get(CONF_CALENDAR_TARGETS, {})
+        schema_dict: dict[Any, Any] = {
+            vol.Optional(
+                CONF_SCAN_INTERVAL_MINUTES,
+                default=current.get(
+                    CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES
                 ),
-                vol.Optional(
-                    CONF_FOCUS_WINDOW_DAYS,
-                    default=current.get(
-                        CONF_FOCUS_WINDOW_DAYS, DEFAULT_FOCUS_WINDOW_DAYS
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=1, max=31, step=1, mode=NumberSelectorMode.BOX
-                    )
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=MIN_SCAN_INTERVAL_MINUTES,
+                    max=720,
+                    step=5,
+                    unit_of_measurement="min",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Optional(
+                CONF_FOCUS_WINDOW_DAYS,
+                default=current.get(
+                    CONF_FOCUS_WINDOW_DAYS, DEFAULT_FOCUS_WINDOW_DAYS
                 ),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=1, max=31, step=1, mode=NumberSelectorMode.BOX
+                )
+            ),
+            vol.Optional(
+                CONF_ENABLE_ATTENDANCE,
+                default=current.get(
+                    CONF_ENABLE_ATTENDANCE, DEFAULT_ENABLE_ATTENDANCE
+                ),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_LUNCH,
+                default=current.get(CONF_ENABLE_LUNCH, DEFAULT_ENABLE_LUNCH),
+            ): bool,
+            vol.Optional(
+                CONF_CALENDAR_AUTOSYNC,
+                default=current.get(
+                    CONF_CALENDAR_AUTOSYNC, DEFAULT_CALENDAR_AUTOSYNC
+                ),
+            ): bool,
+            vol.Optional(
+                CONF_CALENDAR_DAYS,
+                default=current.get(CONF_CALENDAR_DAYS, DEFAULT_CALENDAR_DAYS),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=1,
+                    max=90,
+                    step=1,
+                    unit_of_measurement="days",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+        }
+        # One optional calendar picker per student (blank = don't sync).
+        for sid, field_key in target_fields:
+            schema_dict[
                 vol.Optional(
-                    CONF_ENABLE_ATTENDANCE,
-                    default=current.get(
-                        CONF_ENABLE_ATTENDANCE, DEFAULT_ENABLE_ATTENDANCE
-                    ),
-                ): bool,
-                vol.Optional(
-                    CONF_ENABLE_LUNCH,
-                    default=current.get(CONF_ENABLE_LUNCH, DEFAULT_ENABLE_LUNCH),
-                ): bool,
-            }
+                    field_key,
+                    description={"suggested_value": current_targets.get(sid)},
+                )
+            ] = EntitySelector(EntitySelectorConfig(domain="calendar"))
+
+        return self.async_show_form(
+            step_id="init", data_schema=vol.Schema(schema_dict)
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
