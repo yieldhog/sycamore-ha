@@ -10,7 +10,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SycamoreConfigEntry
 from .const import DATA_HOMEWORK
-from .coordinator import SycamoreDataUpdateCoordinator
 from .entity import SycamoreStudentEntity
 
 
