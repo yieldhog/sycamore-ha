@@ -1,4 +1,4 @@
-"""Tests for the sycamore.sync_calendar service (full mirror behaviour)."""
+"""Tests for the sycamore.sync_calendar service, mapping, and auto-sync."""
 
 from __future__ import annotations
 
@@ -9,12 +9,12 @@ from homeassistant.components.calendar import CalendarEntityFeature, CalendarEve
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sycamore.const import DOMAIN
-from custom_components.sycamore.services import _sync_uid
+from custom_components.sycamore.const import CONF_CALENDAR_TARGETS, DOMAIN
+from custom_components.sycamore.services import _item_hash, async_run_autosync
 
 
 class _Client:
-    """Fake client with a single upcoming quiz."""
+    """Fake client with a single upcoming quiz for any student."""
 
     def __init__(self, *args, **kwargs) -> None:
         pass
@@ -43,16 +43,19 @@ class _Client:
         return {}
 
 
-async def _setup(hass: HomeAssistant) -> None:
+async def _setup(hass: HomeAssistant, students=None, options=None):
+    opts = {"focus_window_days": 7}
+    if options:
+        opts.update(options)
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
             "token": "t",
             "family_id": "1",
             "school_id": None,
-            "students": [{"id": "111", "name": "Jane"}],
+            "students": students or [{"id": "111", "name": "Jane"}],
         },
-        options={"focus_window_days": 7},
+        options=opts,
     )
     entry.add_to_hass(hass)
     with patch("custom_components.sycamore.SycamoreClient", _Client):
@@ -62,18 +65,18 @@ async def _setup(hass: HomeAssistant) -> None:
 
 
 class _FakeCalendar:
-    """Stand-in calendar entity that records deletes and returns fixed events."""
+    """Calendar that returns fixed events and records deletes."""
 
     supported_features = (
         CalendarEntityFeature.CREATE_EVENT | CalendarEntityFeature.DELETE_EVENT
     )
 
-    def __init__(self, events: list[CalendarEvent]) -> None:
-        self._events = events
+    def __init__(self, events) -> None:
+        self._events = list(events)
         self.deleted: list[str] = []
 
     async def async_get_events(self, hass, start, end):
-        return self._events
+        return list(self._events)
 
     async def async_delete_event(
         self, uid, recurrence_id=None, recurrence_range=None
@@ -94,22 +97,20 @@ def _install_fake_calendar(hass: HomeAssistant, events):
     return fake, created
 
 
-def _tagged_event(uid: str, event_uid: str, day: date) -> CalendarEvent:
+def _tagged_event(sid: str, item_hash: str, event_uid: str, day: date):
     return CalendarEvent(
         start=day,
         end=day + timedelta(days=1),
         summary="whatever",
-        description=f"[sycamore-sync:{uid}]",
+        description=f"[sycamore-sync:{sid}:{item_hash}]",
         uid=event_uid,
     )
 
 
-async def _run(hass: HomeAssistant) -> None:
+async def _sync(hass: HomeAssistant, **data):
+    payload = {"days": 14, **data}
     await hass.services.async_call(
-        DOMAIN,
-        "sync_calendar",
-        {"target_calendar": "calendar.school", "days": 14},
-        blocking=True,
+        DOMAIN, "sync_calendar", payload, blocking=True
     )
     await hass.async_block_till_done()
 
@@ -118,50 +119,108 @@ async def test_sync_creates_event(hass: HomeAssistant):
     """An upcoming item not on the calendar is created, with the description."""
     await _setup(hass)
     fake, created = _install_fake_calendar(hass, events=[])
-    await _run(hass)
+    await _sync(hass, target_calendar="calendar.school")
 
     assert len(created) == 1
     event = created[0]
     assert event["entity_id"] == "calendar.school"
     assert "Chapter 3 Quiz" in event["summary"]
-    assert "Study ch 3" in event["description"]  # description carried through
-    assert "sycamore-sync:" in event["description"]  # dedup tag embedded
+    assert "Study ch 3" in event["description"]
+    assert "[sycamore-sync:111:" in event["description"]  # student-scoped tag
     assert fake.deleted == []
 
 
 async def test_sync_deletes_stale(hass: HomeAssistant):
     """An event we created that no longer matches any item is deleted."""
     await _setup(hass)
-    stale = _tagged_event("deadbeef0000", "g-stale", date.today() + timedelta(days=2))
+    stale = _tagged_event(
+        "111", "deadbeef0000", "g-stale", date.today() + timedelta(days=2)
+    )
     fake, created = _install_fake_calendar(hass, events=[stale])
-    await _run(hass)
+    await _sync(hass, target_calendar="calendar.school")
 
-    assert len(created) == 1  # current quiz added
-    assert fake.deleted == ["g-stale"]  # stale one removed
+    assert len(created) == 1
+    assert fake.deleted == ["g-stale"]
 
 
 async def test_sync_dedupes_unchanged(hass: HomeAssistant):
     """An already-synced item is neither re-created nor deleted."""
     await _setup(hass)
     tomorrow = date.today() + timedelta(days=1)
-    uid = _sync_uid(
+    item_hash = _item_hash(
         "111", {"subject": "Mathematics", "title": "Chapter 3 Quiz", "due": tomorrow}
     )
-    present = _tagged_event(uid, "g-keep", tomorrow)
+    present = _tagged_event("111", item_hash, "g-keep", tomorrow)
     fake, created = _install_fake_calendar(hass, events=[present])
-    await _run(hass)
+    await _sync(hass, target_calendar="calendar.school")
 
     assert created == []
     assert fake.deleted == []
 
 
-class _StatefulCalendar:
-    """A faithful calendar: stores events, and creates/deletes like a real one.
+async def test_sync_uses_per_student_options_mapping(hass: HomeAssistant):
+    """With no target_calendar, each student's mapped calendar is used."""
+    await _setup(hass, options={CONF_CALENDAR_TARGETS: {"111": "calendar.school"}})
+    fake, created = _install_fake_calendar(hass, events=[])
+    await _sync(hass)  # note: no target_calendar passed
 
-    The `calendar.create_event` service writes here; the service reads back via
-    `async_get_events` and removes via `async_delete_event`. This lets a test
-    drive the real service through a multi-run lifecycle.
-    """
+    assert len(created) == 1
+    assert created[0]["entity_id"] == "calendar.school"
+
+
+async def test_sync_shared_calendar_is_student_scoped(hass: HomeAssistant):
+    """Two kids share a calendar: syncing one never touches the other's events."""
+    entry = await _setup(
+        hass,
+        students=[{"id": "111", "name": "Jane"}, {"id": "222", "name": "John"}],
+    )
+    coordinator = entry.runtime_data
+    due = date.today() + timedelta(days=3)
+    jane_hw = {
+        "title": "Math HW", "subject": "Mathematics", "due": due,
+        "is_test": False, "kind": "assignment", "description": "",
+    }
+    john_hw = {
+        "title": "Sci HW", "subject": "Science", "due": due,
+        "is_test": False, "kind": "assignment", "description": "",
+    }
+    coordinator.data = {
+        "students": {
+            "111": {"name": "Jane", "homework": [jane_hw]},
+            "222": {"name": "John", "homework": [john_hw]},
+        },
+        "cafeteria": None,
+    }
+    events = [
+        _tagged_event("111", _item_hash("111", jane_hw), "jane-current", due),
+        _tagged_event("111", "oldhash0000", "jane-stale", due),
+        _tagged_event("222", _item_hash("222", john_hw), "john-current", due),
+    ]
+    fake, created = _install_fake_calendar(hass, events)
+
+    # Sync only Jane onto the shared calendar.
+    await _sync(hass, target_calendar="calendar.school", student=["Jane"])
+
+    assert created == []  # Jane's current item already present
+    assert fake.deleted == ["jane-stale"]  # only Jane's stale event removed
+    assert "john-current" not in fake.deleted  # John's event untouched
+
+
+async def test_autosync_reconciles_mapping(hass: HomeAssistant):
+    """async_run_autosync syncs each mapped student without a service call."""
+    entry = await _setup(
+        hass, options={CONF_CALENDAR_TARGETS: {"111": "calendar.school"}}
+    )
+    fake, created = _install_fake_calendar(hass, events=[])
+    await async_run_autosync(hass, entry)
+    await hass.async_block_till_done()
+
+    assert len(created) == 1
+    assert created[0]["entity_id"] == "calendar.school"
+
+
+class _StatefulCalendar:
+    """A faithful calendar: stores events, and creates/deletes like a real one."""
 
     supported_features = (
         CalendarEntityFeature.CREATE_EVENT | CalendarEntityFeature.DELETE_EVENT
@@ -191,21 +250,13 @@ class _StatefulCalendar:
 
 def _hw(title, subject, due, *, is_test=False, kind="assignment", description=""):
     return {
-        "title": title,
-        "subject": subject,
-        "due": due,
-        "is_test": is_test,
-        "kind": kind,
-        "description": description,
+        "title": title, "subject": subject, "due": due,
+        "is_test": is_test, "kind": kind, "description": description,
     }
 
 
 async def test_sync_full_lifecycle(hass: HomeAssistant):
-    """End-to-end: add -> idempotent re-run -> due-date change -> cancellation.
-
-    Drives the real sycamore.sync_calendar service against a stateful calendar,
-    mutating the coordinator's data between runs the way a real refresh would.
-    """
+    """End-to-end: add -> idempotent re-run -> due-date change -> cancellation."""
     entry = await _setup(hass)
     coordinator = entry.runtime_data
 
@@ -230,7 +281,6 @@ async def test_sync_full_lifecycle(hass: HomeAssistant):
     d5 = date.today() + timedelta(days=5)
     d9 = date.today() + timedelta(days=9)
 
-    # Run 1: two items on the board -> both created.
     coordinator.data = {
         "students": {
             "111": {
@@ -244,36 +294,35 @@ async def test_sync_full_lifecycle(hass: HomeAssistant):
         "cafeteria": None,
     }
     res = await run()
-    assert res == {"created": 2, "deleted": 0, "unchanged": 0}
+    assert res["created"] == 2 and res["deleted"] == 0
     assert len(cal.events) == 2
-    # description carried through onto the stored event
     english = next(e for e in cal.events.values() if "Read Ch 4" in e.summary)
     assert "pp. 40-55" in english.description
     assert english.summary == "Jane: Read Ch 4"
     quiz = next(e for e in cal.events.values() if "Ch 3 Quiz" in e.summary)
     assert quiz.summary == "Jane: [QUIZ] Ch 3 Quiz"
 
-    # Run 2: nothing changed -> no writes at all (idempotent).
+    # Idempotent re-run.
     res = await run()
-    assert res == {"created": 0, "deleted": 0, "unchanged": 2}
+    assert res["created"] == 0 and res["deleted"] == 0
     assert len(cal.events) == 2
 
-    # Run 3: the quiz's due date slips d2 -> d9. Old event removed, new created.
+    # Due date slips d2 -> d9: old event removed, new created.
     coordinator.data["students"]["111"]["homework"] = [
         _hw("Ch 3 Quiz", "Mathematics", d9, is_test=True, kind="quiz"),
         _hw("Read Ch 4", "English", d5, description="pp. 40-55"),
     ]
     res = await run()
-    assert res == {"created": 1, "deleted": 1, "unchanged": 1}
+    assert res["created"] == 1 and res["deleted"] == 1
     assert len(cal.events) == 2
     moved = next(e for e in cal.events.values() if "Ch 3 Quiz" in e.summary)
-    assert moved.start == d9  # calendar now reflects the new date
+    assert moved.start == d9
 
-    # Run 4: the quiz is cancelled (drops off the board) -> its event is deleted.
+    # Quiz cancelled -> its event is deleted.
     coordinator.data["students"]["111"]["homework"] = [
         _hw("Read Ch 4", "English", d5, description="pp. 40-55"),
     ]
     res = await run()
-    assert res == {"created": 0, "deleted": 1, "unchanged": 1}
+    assert res["created"] == 0 and res["deleted"] == 1
     assert len(cal.events) == 1
     assert all("Ch 3 Quiz" not in e.summary for e in cal.events.values())

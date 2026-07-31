@@ -22,12 +22,20 @@ CONF_SCAN_INTERVAL_MINUTES = "scan_interval_minutes"
 CONF_ENABLE_ATTENDANCE = "attendance_enabled"
 CONF_ENABLE_LUNCH = "lunch_enabled"
 
+# Calendar sync (options). Per-student target calendar entities, plus an opt-in
+# auto-sync that reconciles after each refresh. Empty/unset target = no sync.
+CONF_CALENDAR_TARGETS = "calendar_targets"  # {student_id: calendar_entity_id}
+CONF_CALENDAR_AUTOSYNC = "calendar_autosync"
+CONF_CALENDAR_DAYS = "calendar_days"
+
 # Defaults
 DEFAULT_SCAN_INTERVAL_MINUTES = 60
 DEFAULT_FOCUS_WINDOW_DAYS = 7
 MIN_SCAN_INTERVAL_MINUTES = 60
 DEFAULT_ENABLE_ATTENDANCE = True
 DEFAULT_ENABLE_LUNCH = True
+DEFAULT_CALENDAR_AUTOSYNC = False
+DEFAULT_CALENDAR_DAYS = 14
 
 MANUFACTURER = "Sycamore"
 

@@ -68,8 +68,12 @@ calendar that advertises `DELETE_EVENT`, Google included.
       assignments/tests/quizzes into a target calendar: creates new items and
       deletes stale ones (via the calendar entity's own methods, since HA has no
       delete *service*), only touching events it tagged. Works with Google.
-- [ ] Optional auto-sync on each coordinator refresh (target stored on the entry) —
-      so users don't have to wire up a time-pattern automation themselves.
+- [x] **Per-student calendar mapping + opt-in auto-sync** — each child gets a
+      calendar picker in Options (blank = don't sync); an "auto-sync after each
+      refresh" toggle (default off) reconciles automatically. Tags are
+      student-scoped (`[sycamore-sync:<student>:<hash>]`) so children can share a
+      calendar safely; the service also takes an optional `student` filter and an
+      optional `target_calendar` override.
 
 ## 4. Quality / polish
 
