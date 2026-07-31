@@ -210,15 +210,21 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _shape_missing(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for m in raw:
-            title = (m.get("Title") or "").strip()
+            subject = clean_subject_name(m.get("ClassName", ""))
+            description = strip_html(m.get("Description"))
+            # The original sycamore-dash app only relied on ClassName +
+            # Description for missing work, so don't drop an item just because
+            # it lacks a Title — fall back so it still surfaces. Skip only a row
+            # with nothing usable at all.
+            title = (m.get("Title") or "").strip() or description[:80] or subject
             if not title:
                 continue
             out.append(
                 {
                     "title": title,
-                    "subject": clean_subject_name(m.get("ClassName", "")),
+                    "subject": subject,
                     "due": m.get("DueDate"),
-                    "description": strip_html(m.get("Description")),
+                    "description": description,
                 }
             )
         return out

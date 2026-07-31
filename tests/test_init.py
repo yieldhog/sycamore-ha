@@ -176,6 +176,28 @@ async def test_lunch_sensor_and_calendar(hass: HomeAssistant):
     assert hass.states.get(cal_eid) is not None
 
 
+class TitlelessMissingClient(FakeClient):
+    """Missing item with no Title — the reference app only used ClassName/Desc."""
+
+    async def async_get_missing(self, student_id):
+        return [{"ClassName": "6H Science", "Description": "<p>Lab writeup</p>"}]
+
+
+async def test_missing_without_title_still_counts(hass: HomeAssistant):
+    """A missing item lacking a Title is surfaced (not silently dropped)."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", TitlelessMissingClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.jane_missing_work").state == "1"
+    assert hass.states.get("binary_sensor.jane_has_missing_work").state == "on"
+    # Falls back to the description text as the label.
+    missing = hass.states.get("sensor.jane_missing_work")
+    assert missing.attributes["assignments"] == ["Lab writeup"]
+
+
 class NoAttendanceClient(FakeClient):
     """Fails if attendance is fetched, proving the toggle skips the call."""
 
