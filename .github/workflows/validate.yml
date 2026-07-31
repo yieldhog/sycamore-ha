@@ -28,9 +28,6 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
-          # No brand has been submitted to home-assistant/brands yet
-          # (tracked in ROADMAP). Drop this once the brand PR is merged.
-          ignore: brands
 
   lint:
     name: Ruff
