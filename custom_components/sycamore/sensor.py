@@ -295,35 +295,38 @@ class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_todays_lunch"
 
-    def _cafeteria(self) -> list[dict[str, Any]]:
-        data = self.coordinator.data or {}
-        return data.get("cafeteria") or []
+    def _days(self) -> list[dict[str, Any]]:
+        return (self.coordinator.data or {}).get("cafeteria") or []
 
-    @staticmethod
-    def _entry_text(item: dict[str, Any]) -> str:
-        for field in ("Title", "Name", "Menu", "Description", "Item"):
-            if item.get(field):
-                return str(item[field]).strip()
-        return ""
-
-    def _todays_items(self) -> list[dict[str, Any]]:
-        today = datetime.now().strftime("%m/%d/%Y")
-        today_iso = datetime.now().strftime("%Y-%m-%d")
-        out = []
-        for item in self._cafeteria():
-            raw = str(item.get("Date") or item.get("MenuDate") or "")
-            if raw.startswith(today) or raw.startswith(today_iso):
-                out.append(item)
-        return out
+    def _today_meals(self) -> list[dict[str, Any]]:
+        today = datetime.now().date()
+        for day in self._days():
+            if day["date"] == today:
+                return day["meals"]
+        return []
 
     @property
     def native_value(self) -> str | None:
-        items = self._todays_items()
-        texts = [t for t in (self._entry_text(i) for i in items) if t]
-        if texts:
-            return ", ".join(texts)[:255]
-        return "No menu" if self._cafeteria() else None
+        meals = self._today_meals()
+        if meals:
+            return ", ".join(m["name"] for m in meals)[:255]
+        return "No menu" if self._days() else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"menu": self._cafeteria()}
+        return {
+            "meals": [
+                {"name": m["name"], "description": m["description"]}
+                for m in self._today_meals()
+            ],
+            "menu": [
+                {
+                    "date": day["date"].isoformat(),
+                    "meals": [
+                        {"name": m["name"], "description": m["description"]}
+                        for m in day["meals"]
+                    ],
+                }
+                for day in self._days()
+            ],
+        }

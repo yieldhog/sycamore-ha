@@ -9,8 +9,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SycamoreConfigEntry
-from .const import DATA_HOMEWORK
-from .entity import SycamoreStudentEntity
+from .const import DATA_CAFETERIA, DATA_HOMEWORK
+from .entity import SycamoreSchoolEntity, SycamoreStudentEntity
 
 
 async def async_setup_entry(
@@ -18,12 +18,15 @@ async def async_setup_entry(
     entry: SycamoreConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up one homework calendar per student."""
+    """Set up a homework calendar per student, plus a school lunch calendar."""
     coordinator = entry.runtime_data
-    async_add_entities(
+    entities: list[CalendarEntity] = [
         SycamoreHomeworkCalendar(coordinator, s["id"], s["name"])
         for s in coordinator.students
-    )
+    ]
+    if coordinator.school_id and coordinator.lunch_enabled:
+        entities.append(SycamoreLunchCalendar(coordinator))
+    async_add_entities(entities)
 
 
 def _summary(hw: dict) -> str:
@@ -71,6 +74,55 @@ class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         """Return events intersecting the requested range."""
+        start = start_date.date()
+        end = end_date.date()
+        return [e for e in self._events() if e.start < end and e.end > start]
+
+
+class SycamoreLunchCalendar(SycamoreSchoolEntity, CalendarEntity):
+    """A read-only calendar of the cafeteria menu — one all-day event per day."""
+
+    _attr_translation_key = "lunch"
+    _attr_icon = "mdi:food"
+
+    def __init__(self, coordinator) -> None:
+        """Initialize the school lunch calendar."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_lunch_calendar"
+
+    def _events(self) -> list[CalendarEvent]:
+        events: list[CalendarEvent] = []
+        for day in (self.coordinator.data or {}).get(DATA_CAFETERIA) or []:
+            due: date = day["date"]
+            meals = day["meals"]
+            summary = ", ".join(m["name"] for m in meals)
+            description = "\n".join(
+                f"{m['name']}: {m['description']}" if m["description"] else m["name"]
+                for m in meals
+            )
+            events.append(
+                CalendarEvent(
+                    start=due,
+                    end=due + timedelta(days=1),
+                    summary=summary[:255] or "Lunch",
+                    description=description or None,
+                )
+            )
+        return events
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        """The next lunch day."""
+        today = datetime.now().date()
+        upcoming = sorted(
+            (e for e in self._events() if e.end > today), key=lambda e: e.start
+        )
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        """Return lunch events intersecting the requested range."""
         start = start_date.date()
         end = end_date.date()
         return [e for e in self._events() if e.start < end and e.end > start]

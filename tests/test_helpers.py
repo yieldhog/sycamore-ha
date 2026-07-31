@@ -8,6 +8,7 @@ import pytest
 
 from custom_components.sycamore.helpers import (
     clean_subject_name,
+    collapse_ws,
     detect_kind,
     parse_due_date,
     strip_html,
@@ -72,3 +73,11 @@ def test_to_float():
     assert to_float(88) == 88.0
     assert to_float(None) is None
     assert to_float("not a number") is None
+
+
+def test_collapse_ws():
+    # The CR/LF that Sycamore embeds in MealDesc collapses to single spaces.
+    assert collapse_ws("Cheeseburger, Chips, \r\nKetchup") == "Cheeseburger, Chips, Ketchup"
+    assert collapse_ws("  x   y  ") == "x y"
+    assert collapse_ws("") == ""
+    assert collapse_ws(None) == ""

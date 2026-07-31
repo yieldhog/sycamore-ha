@@ -77,7 +77,8 @@
       "test_within_24h": { "name": "Test within 24 hours" }
     },
     "calendar": {
-      "homework": { "name": "Homework" }
+      "homework": { "name": "Homework" },
+      "lunch": { "name": "Lunch" }
     },
     "todo": {
       "missing_work": { "name": "Missing work" }

@@ -36,6 +36,7 @@ from .const import (
 )
 from .helpers import (
     clean_subject_name,
+    collapse_ws,
     detect_kind,
     parse_due_date,
     strip_html,
@@ -112,7 +113,8 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             cafeteria: list[dict[str, Any]] | None = None
             if self._school_id and self._lunch_enabled:
-                cafeteria = await self.client.async_get_cafeteria(self._school_id)
+                raw_cafeteria = await self.client.async_get_cafeteria(self._school_id)
+                cafeteria = self._shape_cafeteria(raw_cafeteria)
         except SycamoreAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except SycamoreConnectionError as err:
@@ -225,3 +227,32 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Records vary by school config; keep a count plus the raw rows as an
         # attribute so users can template whatever their school reports.
         return {"count": len(raw), "records": raw}
+
+    def _shape_cafeteria(self, raw: dict[str, Any]) -> list[dict[str, Any]]:
+        """Turn the ``{MM/DD/YYYY: [meals]}`` payload into sorted per-day menus.
+
+        Each day becomes ``{"date": date, "meals": [{"id", "name",
+        "description"}]}``; meal descriptions have their embedded CR/LF collapsed
+        to single spaces. Days are sorted so "next" ordering is trivial.
+        """
+        days: list[dict[str, Any]] = []
+        for date_str, meals in (raw or {}).items():
+            day = parse_due_date(date_str)
+            if day is None or not isinstance(meals, list):
+                continue
+            shaped: list[dict[str, Any]] = []
+            for meal in meals:
+                name = (meal.get("MealName") or "").strip()
+                if not name:
+                    continue
+                shaped.append(
+                    {
+                        "id": meal.get("MealID"),
+                        "name": name,
+                        "description": collapse_ws(meal.get("MealDesc")),
+                    }
+                )
+            if shaped:
+                days.append({"date": day, "meals": shaped})
+        days.sort(key=lambda d: d["date"])
+        return days

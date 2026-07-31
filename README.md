@@ -90,7 +90,12 @@ Per student (device):
 | Homework | calendar | Assignments and tests by due date |
 | Missing work | todo | Read-only checklist of missing assignments |
 
-School-level (only with a School ID): **Today's lunch** sensor.
+School-level (only with a School ID):
+
+| Entity | Platform | State |
+| --- | --- | --- |
+| Today's lunch | sensor | Today's meal names; `meals` attr = today's items, `menu` attr = the full pulled week (dates + meals) |
+| Lunch | calendar | The pulled cafeteria menu, one all-day event per day (meal names as summary, full details in the description) |
 
 ## Automation examples
 

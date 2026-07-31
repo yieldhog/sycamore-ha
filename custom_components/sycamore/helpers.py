@@ -37,6 +37,16 @@ def strip_html(text: str | None) -> str:
     return clean.replace("&nbsp;", " ").replace("&amp;", "&").strip()
 
 
+_WS_RE = re.compile(r"\s+")
+
+
+def collapse_ws(text: str | None) -> str:
+    """Collapse runs of whitespace (incl. the CR/LF in meal descriptions)."""
+    if not text:
+        return ""
+    return _WS_RE.sub(" ", text).strip()
+
+
 # --- Test/quiz inference (ported from app/trmnl.py: detect_kind) ---
 # Whole-word cues matched on boundaries so "final draft"/"contest" don't trip.
 _TEST_KINDS: list[tuple[str, str]] = [
