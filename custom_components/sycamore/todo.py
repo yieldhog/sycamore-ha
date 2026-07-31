@@ -9,7 +9,6 @@ from homeassistant.util import slugify
 
 from . import SycamoreConfigEntry
 from .const import DATA_MISSING
-from .coordinator import SycamoreDataUpdateCoordinator
 from .entity import SycamoreStudentEntity
 
 

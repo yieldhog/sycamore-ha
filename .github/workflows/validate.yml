@@ -1,0 +1,52 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly run so upstream Home Assistant / HACS changes are caught even when
+  # the repo is quiet (requirements_test.txt is intentionally unpinned).
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the manifest with hassfest
+        uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the repository with the HACS action
+        uses: hacs/action@main
+        with:
+          category: integration
+          # No brand has been submitted to home-assistant/brands yet
+          # (tracked in ROADMAP). Drop this once the brand PR is merged.
+          ignore: brands
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # The pinned Home Assistant test harness requires Python >= 3.13.
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_test.txt
+      - name: Run pytest
+        run: python -m pytest -q

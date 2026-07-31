@@ -20,7 +20,6 @@ from .const import (
     DATA_GRADES,
     DATA_HOMEWORK,
     DATA_MISSING,
-    DOMAIN,
 )
 from .coordinator import SycamoreDataUpdateCoordinator
 from .entity import SycamoreSchoolEntity, SycamoreStudentEntity
