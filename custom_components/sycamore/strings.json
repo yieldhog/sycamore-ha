@@ -69,6 +69,10 @@
       "missing_work": { "name": "Missing work" },
       "upcoming_work": { "name": "Upcoming work" },
       "upcoming_tests": { "name": "Upcoming tests" },
+      "grade_average": { "name": "Grade average" },
+      "lowest_class": { "name": "Lowest class" },
+      "next_assignment": { "name": "Next assignment" },
+      "next_test": { "name": "Next test" },
       "attendance": { "name": "Attendance events" },
       "todays_lunch": { "name": "Today's lunch" }
     },

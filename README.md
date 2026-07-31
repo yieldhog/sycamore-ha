@@ -85,6 +85,10 @@ Per student (device):
 | --- | --- | --- |
 | `<Class>` | sensor | Letter grade; attrs: `percent`, `trend`, `updated` |
 | `<Class> percent` | sensor | Numeric grade `%` (`measurement` state class → long-term history/graphs) |
+| Grade average | sensor | Mean of the class percents (`measurement` → long-term history) |
+| Lowest class | sensor | Subject with the lowest current %; `percent`/`letter`/`trend` as attributes |
+| Next assignment | sensor | Due date of the soonest assignment (`timestamp`); title/subject/kind as attributes |
+| Next test | sensor | Due date of the soonest test/quiz (`timestamp`); title/subject/kind as attributes |
 | Missing work | sensor | Count of missing assignments |
 | Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default); `assignments` attr lists them by class with an `is_test`/`kind` flag |
 | Upcoming tests | sensor | Count of tests/quizzes due within the focus window; `tests` attr lists them by class (title, subject, due, kind) |

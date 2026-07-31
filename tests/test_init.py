@@ -105,6 +105,29 @@ async def test_count_and_binary_entities(hass: HomeAssistant):
     assert hass.states.get("binary_sensor.jane_test_within_24_hours").state == "on"
 
 
+async def test_analytics_sensors(hass: HomeAssistant):
+    """Average, lowest class, and next assignment/test are computed from data."""
+    await _setup(hass)
+
+    # Mean of 92.5 (Mathematics) and 85 (Science).
+    assert float(hass.states.get("sensor.jane_grade_average").state) == 88.75
+
+    lowest = hass.states.get("sensor.jane_lowest_class")
+    assert lowest.state == "Science"
+    assert lowest.attributes["percent"] == 85.0
+
+    # The one upcoming item (a quiz due tomorrow) is both next assignment + test.
+    nxt = hass.states.get("sensor.jane_next_assignment")
+    assert nxt.attributes["device_class"] == "timestamp"
+    assert nxt.attributes["title"] == "Chapter 3 Quiz"
+    assert nxt.attributes["subject"] == "Mathematics"
+    assert nxt.state not in (None, "unknown", "unavailable")
+
+    nxt_test = hass.states.get("sensor.jane_next_test")
+    assert nxt_test.attributes["title"] == "Chapter 3 Quiz"
+    assert nxt_test.attributes["is_test"] is True
+
+
 async def test_calendar_and_todo_present(hass: HomeAssistant):
     await _setup(hass)
     assert hass.states.get("calendar.jane_homework") is not None
