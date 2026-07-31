@@ -6,12 +6,14 @@ from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from . import SycamoreConfigEntry
@@ -40,6 +42,10 @@ async def async_setup_entry(
         entities.append(SycamoreMissingCountSensor(coordinator, sid, name))
         entities.append(SycamoreUpcomingCountSensor(coordinator, sid, name))
         entities.append(SycamoreUpcomingTestsSensor(coordinator, sid, name))
+        entities.append(SycamoreAverageSensor(coordinator, sid, name))
+        entities.append(SycamoreLowestClassSensor(coordinator, sid, name))
+        entities.append(SycamoreNextAssignmentSensor(coordinator, sid, name))
+        entities.append(SycamoreNextTestSensor(coordinator, sid, name))
         if coordinator.attendance_enabled:
             entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
     if coordinator.school_id and coordinator.lunch_enabled:
@@ -266,6 +272,136 @@ class SycamoreUpcomingTestsSensor(_StudentCountSensor):
                 for i in self._tests()
             ]
         }
+
+
+class SycamoreAverageSensor(SycamoreStudentEntity, SensorEntity):
+    """Overall grade average across the student's classes (mean of percents)."""
+
+    _attr_translation_key = "grade_average"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:school"
+
+    def __init__(self, coordinator, student_id, student_name) -> None:
+        """Initialize the average sensor."""
+        super().__init__(coordinator, student_id, student_name)
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_{student_id}_grade_average"
+        )
+
+    def _numbers(self) -> list[float]:
+        return [
+            g["number"]
+            for g in self.student_data.get(DATA_GRADES, [])
+            if g["number"] is not None
+        ]
+
+    @property
+    def native_value(self) -> float | None:
+        nums = self._numbers()
+        return round(sum(nums) / len(nums), 2) if nums else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"class_count": len(self._numbers())}
+
+
+class SycamoreLowestClassSensor(SycamoreStudentEntity, SensorEntity):
+    """The class with the lowest current percentage (early warning)."""
+
+    _attr_translation_key = "lowest_class"
+
+    def __init__(self, coordinator, student_id, student_name) -> None:
+        """Initialize the lowest-class sensor."""
+        super().__init__(coordinator, student_id, student_name)
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_{student_id}_lowest_class"
+        )
+
+    def _lowest(self) -> dict[str, Any] | None:
+        graded = [
+            g
+            for g in self.student_data.get(DATA_GRADES, [])
+            if g["number"] is not None
+        ]
+        return min(graded, key=lambda g: g["number"]) if graded else None
+
+    @property
+    def native_value(self) -> str | None:
+        grade = self._lowest()
+        return grade["subject"] if grade else None
+
+    @property
+    def icon(self) -> str:
+        grade = self._lowest()
+        return grade["icon"] if grade else "mdi:trending-down"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        grade = self._lowest() or {}
+        return {
+            "percent": grade.get("number"),
+            "letter": grade.get("letter"),
+            "trend": grade.get("trend"),
+        }
+
+
+class _SycamoreNextBase(SycamoreStudentEntity, SensorEntity):
+    """Due date of the soonest upcoming homework item (optionally tests only)."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _slug: str
+    _test_only: bool = False
+
+    def __init__(self, coordinator, student_id, student_name) -> None:
+        super().__init__(coordinator, student_id, student_name)
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_{student_id}_{self._slug}"
+        )
+
+    def _next(self) -> dict[str, Any] | None:
+        today = datetime.now().date()
+        items = [
+            hw
+            for hw in self.student_data.get(DATA_HOMEWORK, [])
+            if hw["due"] >= today and (hw["is_test"] or not self._test_only)
+        ]
+        return min(items, key=lambda hw: hw["due"]) if items else None
+
+    @property
+    def native_value(self) -> datetime | None:
+        item = self._next()
+        return dt_util.start_of_local_day(item["due"]) if item else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._next()
+        if not item:
+            return {}
+        return {
+            "title": item["title"],
+            "subject": item["subject"],
+            "is_test": item["is_test"],
+            "kind": item["kind"],
+        }
+
+
+class SycamoreNextAssignmentSensor(_SycamoreNextBase):
+    """Due date of the soonest upcoming assignment."""
+
+    _slug = "next_assignment"
+    _attr_translation_key = "next_assignment"
+    _attr_icon = "mdi:calendar-arrow-right"
+
+
+class SycamoreNextTestSensor(_SycamoreNextBase):
+    """Due date of the soonest upcoming test/quiz."""
+
+    _slug = "next_test"
+    _attr_translation_key = "next_test"
+    _attr_icon = "mdi:clipboard-text-clock"
+    _test_only = True
 
 
 class SycamoreAttendanceSensor(_StudentCountSensor):

@@ -24,19 +24,23 @@ or `entity_registry_enabled_default = False`.
 
 Cheap and high-value. Ship enabled, or disabled-by-default if niche. No toggles.
 
-- [ ] **Overall grade average (%)** per student — mean of class percents;
-      `state_class = measurement`. The best single addition.
-- [ ] **Lowest class** — subject with the lowest current %; early warning.
-- [ ] **Next assignment** — soonest homework; `device_class = timestamp` (or a
-      date), title/subject as attributes.
-- [ ] **Next test (timestamp)** — partially covered: the *Upcoming tests* count/list
-      sensor now spans the focus window; a single soonest-test timestamp is still open.
+- [x] **Overall grade average (%)** per student — mean of class percents;
+      `state_class = measurement`.
+- [x] **Lowest class** — subject with the lowest current %; early warning.
+- [x] **Next assignment** — soonest homework; `device_class = timestamp`,
+      title/subject/kind as attributes.
+- [x] **Next test** — soonest test/quiz; `device_class = timestamp` (plus the
+      *Upcoming tests* count/list sensor over the focus window).
 
-Add unit tests mirroring `tests/test_init.py` (fake client → assert states).
+All four are computed from grades/homework already fetched (fields confirmed
+against the dash source) and unit-tested in `tests/test_init.py`.
 
 ## 2. Endpoint-backed sensors (new fetch → add an options toggle, like Attendance/Lunch)
 
-- [ ] **GPA / statistics** — `Student/{id}/Statistics`. Official GPA/averages.
+- [ ] **GPA / statistics** — `Student/{id}/Statistics`. Blocked: returns
+      `401 insufficient_scope` (needs the `families` scope the family-portal token
+      lacks). Needs a higher-privilege token; also, its 401 would trip our auth
+      handler, so it needs isolated error handling if added.
 - [ ] **Last graded assignment** — `Student/{id}/Assignment_Grades`; state = most
       recent score, attrs = name/subject/date. Enables "just got an 88" automations.
 - [ ] **Discipline events** — `Student/{id}/Discipline_Log`; count + records.
