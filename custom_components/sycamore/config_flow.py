@@ -24,6 +24,8 @@ from homeassistant.helpers.selector import (
 
 from .api import SycamoreAuthError, SycamoreClient, SycamoreConnectionError
 from .const import (
+    CONF_ENABLE_ATTENDANCE,
+    CONF_ENABLE_LUNCH,
     CONF_FAMILY_ID,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
@@ -32,6 +34,8 @@ from .const import (
     CONF_STUDENT_NAME,
     CONF_STUDENTS,
     CONF_TOKEN,
+    DEFAULT_ENABLE_ATTENDANCE,
+    DEFAULT_ENABLE_LUNCH,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
     DOMAIN,
@@ -257,6 +261,16 @@ class SycamoreOptionsFlow(OptionsFlow):
                         min=1, max=31, step=1, mode=NumberSelectorMode.BOX
                     )
                 ),
+                vol.Optional(
+                    CONF_ENABLE_ATTENDANCE,
+                    default=current.get(
+                        CONF_ENABLE_ATTENDANCE, DEFAULT_ENABLE_ATTENDANCE
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_LUNCH,
+                    default=current.get(CONF_ENABLE_LUNCH, DEFAULT_ENABLE_LUNCH),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

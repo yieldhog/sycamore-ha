@@ -14,6 +14,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import SycamoreAuthError, SycamoreClient, SycamoreConnectionError
 from .const import (
+    CONF_ENABLE_ATTENDANCE,
+    CONF_ENABLE_LUNCH,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
     CONF_SCHOOL_ID,
@@ -26,6 +28,8 @@ from .const import (
     DATA_HOMEWORK,
     DATA_MISSING,
     DATA_NAME,
+    DEFAULT_ENABLE_ATTENDANCE,
+    DEFAULT_ENABLE_LUNCH,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
     DOMAIN,
@@ -60,6 +64,12 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._focus_window: int = int(
             options.get(CONF_FOCUS_WINDOW_DAYS, DEFAULT_FOCUS_WINDOW_DAYS)
         )
+        self._attendance_enabled: bool = options.get(
+            CONF_ENABLE_ATTENDANCE, DEFAULT_ENABLE_ATTENDANCE
+        )
+        self._lunch_enabled: bool = options.get(
+            CONF_ENABLE_LUNCH, DEFAULT_ENABLE_LUNCH
+        )
         interval = int(
             options.get(CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES)
         )
@@ -83,6 +93,16 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """School id used for the cafeteria menu, if configured."""
         return self._school_id
 
+    @property
+    def attendance_enabled(self) -> bool:
+        """Whether the attendance endpoint/entities are enabled."""
+        return self._attendance_enabled
+
+    @property
+    def lunch_enabled(self) -> bool:
+        """Whether the cafeteria endpoint/entity is enabled."""
+        return self._lunch_enabled
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every student concurrently and reshape into entity-ready data."""
         today = datetime.now().date()
@@ -91,7 +111,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 *(self._fetch_student(s, today) for s in self._students)
             )
             cafeteria: list[dict[str, Any]] | None = None
-            if self._school_id:
+            if self._school_id and self._lunch_enabled:
                 cafeteria = await self.client.async_get_cafeteria(self._school_id)
         except SycamoreAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
@@ -108,12 +128,16 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> tuple[str, dict[str, Any]]:
         """Fetch one student's endpoints and shape the payload."""
         sid = student[CONF_STUDENT_ID]
-        grades_raw, homework_raw, missing_raw, attendance_raw = await asyncio.gather(
+        calls = [
             self.client.async_get_grades(sid),
             self.client.async_get_homework(sid),
             self.client.async_get_missing(sid),
-            self.client.async_get_attendance(sid),
-        )
+        ]
+        if self._attendance_enabled:
+            calls.append(self.client.async_get_attendance(sid))
+        results = await asyncio.gather(*calls)
+        grades_raw, homework_raw, missing_raw = results[0], results[1], results[2]
+        attendance_raw = results[3] if self._attendance_enabled else []
 
         data: dict[str, Any] = {
             DATA_NAME: student[CONF_STUDENT_NAME],

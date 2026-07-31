@@ -58,8 +58,11 @@ School**. You'll be asked for:
 
 If you leave Family ID blank, you can add students by hand (Student ID + display name).
 
-**Options** (gear icon on the integration): poll interval (minutes, min 5) and the focus
-window (days) used by the *Upcoming work* sensor.
+**Options** (gear icon on the integration): poll interval (minutes, min 5), the focus
+window (days) used by the *Upcoming work* sensor, and toggles for the **Attendance** and
+**Lunch** sensors — turning one off stops the coordinator from polling that endpoint and
+removes its entities. Every other sensor can be enabled or disabled individually from its
+own entity settings in Home Assistant.
 
 ## Entities
 

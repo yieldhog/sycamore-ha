@@ -17,11 +17,17 @@ CONF_STUDENT_ID = "id"
 CONF_STUDENT_NAME = "name"
 CONF_FOCUS_WINDOW_DAYS = "focus_window_days"
 CONF_SCAN_INTERVAL_MINUTES = "scan_interval_minutes"
+# Feature toggles (options). These gate an extra API call each, so turning one
+# off also stops the coordinator from fetching that endpoint.
+CONF_ENABLE_ATTENDANCE = "attendance_enabled"
+CONF_ENABLE_LUNCH = "lunch_enabled"
 
 # Defaults
 DEFAULT_SCAN_INTERVAL_MINUTES = 30
 DEFAULT_FOCUS_WINDOW_DAYS = 7
 MIN_SCAN_INTERVAL_MINUTES = 5
+DEFAULT_ENABLE_ATTENDANCE = True
+DEFAULT_ENABLE_LUNCH = True
 
 MANUFACTURER = "Sycamore"
 

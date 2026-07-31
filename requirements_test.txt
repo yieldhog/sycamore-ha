@@ -1,0 +1,3 @@
+# Test tooling. pytest-homeassistant-custom-component pins a matching Home
+# Assistant version and pulls pytest + the HA test harness transitively.
+pytest-homeassistant-custom-component

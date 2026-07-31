@@ -40,8 +40,9 @@ async def async_setup_entry(
         name = student["name"]
         entities.append(SycamoreMissingCountSensor(coordinator, sid, name))
         entities.append(SycamoreUpcomingCountSensor(coordinator, sid, name))
-        entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
-    if coordinator.school_id:
+        if coordinator.attendance_enabled:
+            entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
+    if coordinator.school_id and coordinator.lunch_enabled:
         entities.append(SycamoreLunchSensor(coordinator))
     async_add_entities(entities)
 

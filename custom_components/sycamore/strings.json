@@ -50,11 +50,15 @@
         "title": "Sycamore options",
         "data": {
           "scan_interval_minutes": "Update interval (minutes)",
-          "focus_window_days": "Focus window (days)"
+          "focus_window_days": "Focus window (days)",
+          "attendance_enabled": "Attendance sensor",
+          "lunch_enabled": "Lunch menu sensor"
         },
         "data_description": {
           "scan_interval_minutes": "How often to poll Sycamore. Minimum 5 minutes.",
-          "focus_window_days": "How far ahead 'upcoming work' looks."
+          "focus_window_days": "How far ahead 'upcoming work' looks.",
+          "attendance_enabled": "When off, the attendance endpoint is not polled and its sensors are removed.",
+          "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed."
         }
       }
     }
