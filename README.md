@@ -34,6 +34,8 @@ missing work") without any MQTT bridge or external service.
 
 ## Installation
 
+Requires Home Assistant **2024.12** or newer.
+
 ### HACS (recommended)
 
 1. In HACS, open the three-dot menu → **Custom repositories**.
@@ -125,6 +127,8 @@ automation:
 Additional Sycamore endpoints that could become entities: per-assignment scores
 (`Assignment_Grades`), GPA/statistics, and the discipline log, plus a full lunch-menu
 calendar.
+
+See [`ROADMAP.md`](ROADMAP.md) for the full, prioritized list.
 
 ## Credits
 
