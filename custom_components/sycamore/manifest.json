@@ -3,6 +3,7 @@
   "name": "Sycamore School",
   "codeowners": ["@yieldhog"],
   "config_flow": true,
+  "dependencies": ["calendar"],
   "documentation": "https://github.com/yieldhog/sycamore-ha",
   "integration_type": "hub",
   "iot_class": "cloud_polling",

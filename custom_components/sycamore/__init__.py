@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from .api import SycamoreClient
 from .const import CONF_TOKEN
 from .coordinator import SycamoreDataUpdateCoordinator
+from .services import async_setup_services
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -29,6 +30,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SycamoreConfigEntry) -> 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+    await async_setup_services(hass)
     return True
 
 

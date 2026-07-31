@@ -143,6 +143,40 @@ automation:
             Nicholas has {{ states('sensor.nicholas_missing_work') }} missing assignment(s).
 ```
 
+## Sync assignments to a calendar
+
+The **`sycamore.sync_calendar`** service mirrors upcoming assignments, tests, and
+quizzes into a writable calendar — e.g. a Google calendar you've added to Home
+Assistant. It only manages events it created (tagged in the description), so your
+own events are never touched: new work is **added**, and if an item's due date
+changes or it's cancelled the stale event is **removed**.
+
+| Field | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `target_calendar` | Yes | — | Calendar entity to sync into (e.g. `calendar.school`). |
+| `days` | No | 14 | How many days ahead to sync. |
+| `prefix_student_name` | No | `true` | Prefix each event with the student's name. |
+
+Run it on a schedule so new assignments appear automatically:
+
+```yaml
+automation:
+  - alias: Sync school work to Google Calendar
+    trigger:
+      - platform: time_pattern
+        hours: "/6"
+    action:
+      - service: sycamore.sync_calendar
+        data:
+          target_calendar: calendar.school
+          days: 14
+```
+
+Point it at a **dedicated** calendar (e.g. a "School" Google calendar) so these
+managed events stay isolated. Deletion works on any calendar that supports it
+(Google does); on calendars without delete support, new events are still added but
+stale ones are logged instead of removed.
+
 ## Roadmap
 
 Additional Sycamore endpoints that could become entities: per-assignment scores

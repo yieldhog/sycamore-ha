@@ -53,13 +53,15 @@ gate the entity in its platform, add strings/translations, and a skip-fetch test
 
 ## 3. Calendar sync — write Sycamore items into a writable calendar
 
-Designed earlier this session; not yet built. A `sycamore.sync_calendar` service
-that reconciles (create / update / delete) upcoming assignments & tests into a
-target calendar. Full CRUD works into HA's **Local Calendar**; Google via HA is
-create-only (no update/delete), so a true mirror there needs a direct Google API.
+Shipped. Note learned while building: HA exposes only `create_event`/`get_events`
+as calendar *services* (delete/update are frontend-websocket only), so the service
+reads/deletes through the target calendar entity's own methods — which works for
+any calendar that advertises `DELETE_EVENT`, Google included.
 
-- [ ] Build the reconciliation service (Local Calendar target first; capability-gate
-      update/delete; tag our events so user events are never touched).
+- [x] Build the reconciliation service — `sycamore.sync_calendar` mirrors
+      assignments/tests/quizzes into a target calendar: creates new items and
+      deletes stale ones (via the calendar entity's own methods, since HA has no
+      delete *service*), only touching events it tagged. Works with Google.
 - [ ] Optional auto-sync on each coordinator refresh (target stored on the entry).
 
 ## 4. Quality / polish
