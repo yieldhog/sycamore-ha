@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import SycamoreAuthError, SycamoreClient, SycamoreConnectionError
 from .const import (
     CONF_ENABLE_ATTENDANCE,
+    CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_LUNCH,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
@@ -24,11 +25,13 @@ from .const import (
     CONF_STUDENTS,
     DATA_ATTENDANCE,
     DATA_CAFETERIA,
+    DATA_DISCIPLINE,
     DATA_GRADES,
     DATA_HOMEWORK,
     DATA_MISSING,
     DATA_NAME,
     DEFAULT_ENABLE_ATTENDANCE,
+    DEFAULT_ENABLE_DISCIPLINE,
     DEFAULT_ENABLE_LUNCH,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
@@ -71,6 +74,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._lunch_enabled: bool = options.get(
             CONF_ENABLE_LUNCH, DEFAULT_ENABLE_LUNCH
         )
+        self._discipline_enabled: bool = options.get(
+            CONF_ENABLE_DISCIPLINE, DEFAULT_ENABLE_DISCIPLINE
+        )
         interval = int(
             options.get(CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES)
         )
@@ -104,6 +110,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Whether the cafeteria endpoint/entity is enabled."""
         return self._lunch_enabled
 
+    @property
+    def discipline_enabled(self) -> bool:
+        """Whether the discipline endpoint/entities are enabled."""
+        return self._discipline_enabled
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every student concurrently and reshape into entity-ready data."""
         today = datetime.now().date()
@@ -135,18 +146,31 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.client.async_get_homework(sid),
             self.client.async_get_missing(sid),
         ]
+        # Optional endpoints are appended only when enabled; track each one's
+        # slot so results stay correctly matched regardless of which are on.
+        indices: dict[str, int] = {}
         if self._attendance_enabled:
+            indices["attendance"] = len(calls)
             calls.append(self.client.async_get_attendance(sid))
+        if self._discipline_enabled:
+            indices["discipline"] = len(calls)
+            calls.append(self.client.async_get_discipline(sid))
         results = await asyncio.gather(*calls)
         grades_raw, homework_raw, missing_raw = results[0], results[1], results[2]
-        attendance_raw = results[3] if self._attendance_enabled else []
+        attendance_raw = (
+            results[indices["attendance"]] if "attendance" in indices else []
+        )
+        discipline_raw = (
+            results[indices["discipline"]] if "discipline" in indices else []
+        )
 
         data: dict[str, Any] = {
             DATA_NAME: student[CONF_STUDENT_NAME],
             DATA_GRADES: self._shape_grades(sid, grades_raw),
             DATA_HOMEWORK: self._shape_homework(homework_raw, today),
             DATA_MISSING: self._shape_missing(missing_raw),
-            DATA_ATTENDANCE: self._shape_attendance(attendance_raw),
+            DATA_ATTENDANCE: self._shape_events(attendance_raw),
+            DATA_DISCIPLINE: self._shape_events(discipline_raw),
         }
         return sid, data
 
@@ -229,9 +253,10 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         return out
 
-    def _shape_attendance(self, raw: list[dict[str, Any]]) -> dict[str, Any]:
-        # Records vary by school config; keep a count plus the raw rows as an
-        # attribute so users can template whatever their school reports.
+    def _shape_events(self, raw: list[dict[str, Any]]) -> dict[str, Any]:
+        # Attendance and discipline rows vary by school config; keep a count plus
+        # the raw rows as an attribute so users can template whatever their
+        # school reports.
         return {"count": len(raw), "records": raw}
 
     def _shape_cafeteria(self, raw: dict[str, Any]) -> list[dict[str, Any]]:

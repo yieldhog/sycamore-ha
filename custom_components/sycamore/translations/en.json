@@ -55,6 +55,7 @@
           "focus_window_days": "Focus window (days)",
           "attendance_enabled": "Attendance sensor",
           "lunch_enabled": "Lunch menu sensor",
+          "discipline_enabled": "Discipline log sensor",
           "calendar_autosync": "Auto-sync calendars after each refresh",
           "calendar_days": "Calendar sync window (days ahead)"
         },
@@ -63,6 +64,7 @@
           "focus_window_days": "How far ahead 'upcoming work' looks.",
           "attendance_enabled": "When off, the attendance endpoint is not polled and its sensors are removed.",
           "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed.",
+          "discipline_enabled": "When on, the discipline log is polled and a per-student discipline-events sensor is added. Off by default.",
           "calendar_autosync": "When on, each child with a target calendar is synced automatically after every poll. When off, use the sycamore.sync_calendar service manually.",
           "calendar_days": "How many days ahead of assignments/tests to put on the calendar."
         }
@@ -79,6 +81,7 @@
       "next_assignment": { "name": "Next assignment" },
       "next_test": { "name": "Next test" },
       "attendance": { "name": "Attendance events" },
+      "discipline": { "name": "Discipline events" },
       "todays_lunch": { "name": "Today's lunch" }
     },
     "binary_sensor": {

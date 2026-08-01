@@ -139,6 +139,10 @@ class SycamoreClient:
         """GET /Student/{id}/Attendance."""
         return self._as_list(await self._get(f"Student/{student_id}/Attendance"))
 
+    async def async_get_discipline(self, student_id: str) -> list[dict[str, Any]]:
+        """GET /Student/{id}/Discipline_Log."""
+        return self._as_list(await self._get(f"Student/{student_id}/Discipline_Log"))
+
     # --- School-level ------------------------------------------------------
     async def async_get_cafeteria(self, school_id: str) -> dict[str, Any]:
         """GET /School/{id}/Cafeteria (lunch menu).
