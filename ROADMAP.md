@@ -48,7 +48,9 @@ against the dash source) and unit-tested in `tests/test_init.py`.
       handler, so it needs isolated error handling if added.
 - [ ] **Last graded assignment** — `Student/{id}/Assignment_Grades`; state = most
       recent score, attrs = name/subject/date. Enables "just got an 88" automations.
-- [ ] **Discipline events** — `Student/{id}/Discipline_Log`; count + records.
+- [x] **Discipline events** — `Student/{id}/Discipline_Log`; opt-in options toggle
+      (off by default) gates the fetch and a per-student *Discipline events* count
+      sensor (records exposed as an attribute).
 - [ ] **School events calendar** + "days until next day off" — school-level
       calendar endpoint (better as a `calendar` entity than a sensor).
 - [x] **Lunch as a week calendar** — shipped.
@@ -77,7 +79,7 @@ calendar that advertises `DELETE_EVENT`, Google included.
 
 ## 4. Quality / polish
 
-- [ ] Expand config-flow tests: reauth success, options flow, "add another"
+- [x] Expand config-flow tests: reauth success, options flow, "add another"
       manual loop, `already_configured` abort.
 - [x] Confirm the `School/{id}/Cafeteria` response shape against a real account —
       it's `{MM/DD/YYYY: [{MealID, MealName, MealDesc}]}` (a dict, not a list).
@@ -85,7 +87,7 @@ calendar that advertises `DELETE_EVENT`, Google included.
       adopt an explicit test/quiz field if the payload exposes one, instead of the
       title heuristic.
 - [ ] Consider discovering School ID (avoid asking the user) if an endpoint exposes it.
-- [ ] Add `ruff`/lint to CI (dead imports already cleaned, so it should start green).
+- [x] Add `ruff`/lint to CI — a pinned `ruff check` job runs in `validate.yml`.
 
 ## 5. HACS default-store submission (so users don't need a custom repo URL)
 

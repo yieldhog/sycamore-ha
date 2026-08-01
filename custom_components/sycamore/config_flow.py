@@ -34,6 +34,7 @@ from .const import (
     CONF_CALENDAR_DAYS,
     CONF_CALENDAR_TARGETS,
     CONF_ENABLE_ATTENDANCE,
+    CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_LUNCH,
     CONF_FAMILY_ID,
     CONF_FOCUS_WINDOW_DAYS,
@@ -46,6 +47,7 @@ from .const import (
     DEFAULT_CALENDAR_AUTOSYNC,
     DEFAULT_CALENDAR_DAYS,
     DEFAULT_ENABLE_ATTENDANCE,
+    DEFAULT_ENABLE_DISCIPLINE,
     DEFAULT_ENABLE_LUNCH,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
@@ -317,6 +319,12 @@ class SycamoreOptionsFlow(OptionsFlow):
             vol.Optional(
                 CONF_ENABLE_LUNCH,
                 default=current.get(CONF_ENABLE_LUNCH, DEFAULT_ENABLE_LUNCH),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_DISCIPLINE,
+                default=current.get(
+                    CONF_ENABLE_DISCIPLINE, DEFAULT_ENABLE_DISCIPLINE
+                ),
             ): bool,
             vol.Optional(
                 CONF_CALENDAR_AUTOSYNC,

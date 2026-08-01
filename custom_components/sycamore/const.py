@@ -21,6 +21,7 @@ CONF_SCAN_INTERVAL_MINUTES = "scan_interval_minutes"
 # off also stops the coordinator from fetching that endpoint.
 CONF_ENABLE_ATTENDANCE = "attendance_enabled"
 CONF_ENABLE_LUNCH = "lunch_enabled"
+CONF_ENABLE_DISCIPLINE = "discipline_enabled"
 
 # Calendar sync (options). Per-student target calendar entities, plus an opt-in
 # auto-sync that reconciles after each refresh. Empty/unset target = no sync.
@@ -34,6 +35,8 @@ DEFAULT_FOCUS_WINDOW_DAYS = 7
 MIN_SCAN_INTERVAL_MINUTES = 60
 DEFAULT_ENABLE_ATTENDANCE = True
 DEFAULT_ENABLE_LUNCH = True
+# Discipline is niche and sensitive, so it's opt-in (off by default).
+DEFAULT_ENABLE_DISCIPLINE = False
 DEFAULT_CALENDAR_AUTOSYNC = False
 DEFAULT_CALENDAR_DAYS = 14
 
@@ -45,6 +48,7 @@ DATA_GRADES = "grades"
 DATA_HOMEWORK = "homework"
 DATA_MISSING = "missing"
 DATA_ATTENDANCE = "attendance"
+DATA_DISCIPLINE = "discipline"
 
 # Top-level (school) key in coordinator data.
 DATA_CAFETERIA = "cafeteria"

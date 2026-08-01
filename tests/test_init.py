@@ -39,6 +39,9 @@ class FakeClient:
     async def async_get_attendance(self, student_id):
         return [{"Date": "01/12/2026", "Type": "Tardy"}]
 
+    async def async_get_discipline(self, student_id):
+        return [{"Date": "01/15/2026", "Type": "Detention", "Description": "Late"}]
+
     async def async_get_cafeteria(self, school_id):
         return []
 
@@ -249,3 +252,45 @@ async def test_attendance_disabled(hass: HomeAssistant):
     assert hass.states.get("sensor.jane_attendance_events") is None
     # Core sensors are unaffected.
     assert hass.states.get("sensor.jane_missing_work") is not None
+
+
+class NoDisciplineClient(FakeClient):
+    """Fails if discipline is fetched, proving it's off unless enabled."""
+
+    async def async_get_discipline(self, student_id):
+        raise AssertionError("discipline must not be fetched when disabled")
+
+
+async def test_discipline_off_by_default(hass: HomeAssistant):
+    """Discipline is opt-in: not polled and no sensor unless the toggle is on."""
+    entry = _entry()  # no discipline_enabled option -> defaults off
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", NoDisciplineClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.states.get("sensor.jane_discipline_events") is None
+
+
+async def test_discipline_enabled(hass: HomeAssistant):
+    """With the toggle on, the discipline log drives a per-student sensor."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"discipline_enabled": True},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    disc = hass.states.get("sensor.jane_discipline_events")
+    assert disc is not None
+    assert disc.state == "1"
+    assert disc.attributes["records"][0]["Type"] == "Detention"

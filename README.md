@@ -71,8 +71,10 @@ If you leave Family ID blank, you can add students by hand (Student ID + display
   "next N days" horizon: the *Upcoming work* sensor reports the assignments due within
   this window (its count is the state; the assignments are listed in its attributes).
   Set it to `14` for a two-week view, and so on.
-- **Attendance** and **Lunch** toggles — turning one off stops the coordinator from
-  polling that endpoint and removes its entities.
+- **Attendance**, **Lunch**, and **Discipline** toggles — each gates its own endpoint,
+  so turning one off stops the coordinator polling it and removes its entities.
+  Discipline is **off by default** (it's niche and sensitive); turn it on to add a
+  per-student *Discipline events* sensor.
 
 Every other sensor can be enabled or disabled individually from its own entity settings
 in Home Assistant.
@@ -93,6 +95,7 @@ Per student (device):
 | Upcoming work | sensor | Count of assignments due within the focus window (next 7 days by default); `assignments` attr lists them by class with an `is_test`/`kind` flag |
 | Upcoming tests | sensor | Count of tests/quizzes due within the focus window; `tests` attr lists them by class (title, subject, due, kind) |
 | Attendance events | sensor | Count of attendance records |
+| Discipline events | sensor | Count of discipline-log records (`records` attr); **off by default** — enable in options |
 | Has missing work | binary_sensor | `on` when anything is missing |
 | Test within 24 hours | binary_sensor | `on` when a test/quiz is due within a day |
 | Homework | calendar | Assignments and tests by due date |

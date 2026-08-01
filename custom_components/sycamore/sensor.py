@@ -19,6 +19,7 @@ from homeassistant.util import slugify
 from . import SycamoreConfigEntry
 from .const import (
     DATA_ATTENDANCE,
+    DATA_DISCIPLINE,
     DATA_GRADES,
     DATA_HOMEWORK,
     DATA_MISSING,
@@ -48,6 +49,8 @@ async def async_setup_entry(
         entities.append(SycamoreNextTestSensor(coordinator, sid, name))
         if coordinator.attendance_enabled:
             entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
+        if coordinator.discipline_enabled:
+            entities.append(SycamoreDisciplineSensor(coordinator, sid, name))
     if coordinator.school_id and coordinator.lunch_enabled:
         entities.append(SycamoreLunchSensor(coordinator))
     async_add_entities(entities)
@@ -418,6 +421,22 @@ class SycamoreAttendanceSensor(_StudentCountSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"records": self.student_data.get(DATA_ATTENDANCE, {}).get("records", [])}
+
+
+class SycamoreDisciplineSensor(_StudentCountSensor):
+    """Discipline events count (as reported by the school's discipline log)."""
+
+    _slug = "discipline"
+    _attr_translation_key = "discipline"
+    _attr_icon = "mdi:gavel"
+
+    @property
+    def native_value(self) -> int:
+        return self.student_data.get(DATA_DISCIPLINE, {}).get("count", 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"records": self.student_data.get(DATA_DISCIPLINE, {}).get("records", [])}
 
 
 class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
