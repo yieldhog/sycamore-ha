@@ -55,10 +55,15 @@ attendance}}, "cafeteria": [...] | None}`.
   `app.sycamoreeducation.com`; the school host above is what works).
 - Auth: personal access token (My Organizer → Applications), `Authorization:
   Bearer <token>`. No OAuth redirect flow.
-- Endpoints used: `Student/{id}/Grades|Homework|Missing|Attendance`,
-  `Family/{id}/Students` (discovery), `School/{id}/Cafeteria`.
-- More available (see ROADMAP): `Student/{id}/Assignment_Grades|Statistics|
-  Discipline_Log`. Official docs: github.com/SycamoreEducation/SycamoreSchoolAPI.
+- Endpoints used: `Student/{id}` (details) `|Grades|Homework|Missing|Attendance|
+  Discipline`, `Family/{id}/Students` (discovery), `School/{id}/Cafeteria|Events`.
+- Endpoint names are per the live sandbox (app.sycamoreschool.com/oauth/sandbox),
+  which is authoritative — the GitHub docs list some that don't exist. E.g. it's
+  `Student/{id}/Discipline` (**not** `Discipline_Log`), and there's no
+  `Assignment_Grades`; assignment-level grades are `Student/{id}/Classes/{cid}/
+  Grades` (needs the class list first; response is keyed by class-type unless
+  `format=1`, and `quarter=0` returns all terms). `Statistics` exists but likely
+  needs a higher token scope. Official docs: github.com/SycamoreEducation/SycamoreSchoolAPI.
 
 ## Dev & testing
 

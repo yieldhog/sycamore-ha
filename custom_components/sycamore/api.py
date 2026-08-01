@@ -140,8 +140,8 @@ class SycamoreClient:
         return self._as_list(await self._get(f"Student/{student_id}/Attendance"))
 
     async def async_get_discipline(self, student_id: str) -> list[dict[str, Any]]:
-        """GET /Student/{id}/Discipline_Log."""
-        return self._as_list(await self._get(f"Student/{student_id}/Discipline_Log"))
+        """GET /Student/{id}/Discipline (the discipline log)."""
+        return self._as_list(await self._get(f"Student/{student_id}/Discipline"))
 
     async def async_get_student_details(self, student_id: str) -> dict[str, Any]:
         """GET /Student/{id} — profile details (grade, homeroom, etc.)."""

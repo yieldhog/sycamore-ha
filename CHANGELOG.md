@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-08-01
+
+### Fixed
+
+- **Discipline endpoint** — the discipline log is fetched from
+  `Student/{id}/Discipline`, not `Discipline_Log` (which 404s). The old path
+  would have failed the refresh for anyone who enabled the (off-by-default)
+  discipline toggle. Verified against the live API sandbox.
+
 ## [0.1.4] - 2026-08-01
 
 ### Added
@@ -107,6 +116,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.5]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.5
 [0.1.4]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.4
 [0.1.3]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.3
 [0.1.2]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.2
