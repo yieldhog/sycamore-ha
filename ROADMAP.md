@@ -93,6 +93,10 @@ calendar that advertises `DELETE_EVENT`, Google included.
       title heuristic.
 - [ ] Consider discovering School ID (avoid asking the user) if an endpoint exposes it.
 - [x] Add `ruff`/lint to CI — a pinned `ruff check` job runs in `validate.yml`.
+- [x] **Integration health entities** — a "Sycamore" service device with a *Last
+      updated* timestamp and a *Status* problem binary sensor, both always-available
+      so they can report a failed refresh (and so an off-season `Unknown` reads as
+      "no data," not "broken").
 
 ## 5. HACS default-store submission (so users don't need a custom repo URL)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DATA_DETAILS, DOMAIN, MANUFACTURER
@@ -68,3 +68,28 @@ class SycamoreSchoolEntity(CoordinatorEntity[SycamoreDataUpdateCoordinator]):
             manufacturer=MANUFACTURER,
             model="School",
         )
+
+
+class SycamoreServiceEntity(CoordinatorEntity[SycamoreDataUpdateCoordinator]):
+    """Base for integration-level health entities (a 'Sycamore' service device).
+
+    These deliberately stay ``available`` even when a refresh fails — otherwise
+    a status/last-updated entity would vanish exactly when it's needed.
+    """
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
+        """Initialize the service entity and its (service) device info."""
+        super().__init__(coordinator)
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_service")},
+            name="Sycamore",
+            manufacturer=MANUFACTURER,
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def available(self) -> bool:
+        """Always available so it can report the *state* of the last update."""
+        return True

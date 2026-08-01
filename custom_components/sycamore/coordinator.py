@@ -91,6 +91,8 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         # (student_id, class_name) -> last seen numeric score, for trend arrows.
         self._prev_scores: dict[tuple[str, str], float] = {}
+        # Timestamp of the last *successful* refresh, for the health sensors.
+        self.last_success: datetime | None = None
 
         super().__init__(
             hass,
@@ -157,6 +159,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except SycamoreConnectionError as err:
             raise UpdateFailed(str(err)) from err
 
+        self.last_success = dt_util.now()
         return {
             "students": {sid: data for sid, data in results},
             DATA_CAFETERIA: cafeteria,

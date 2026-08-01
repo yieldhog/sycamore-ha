@@ -87,11 +87,13 @@
       "grade_level": { "name": "Grade level" },
       "homeroom_teacher": { "name": "Homeroom teacher" },
       "next_school_event": { "name": "Next school event" },
-      "todays_lunch": { "name": "Today's lunch" }
+      "todays_lunch": { "name": "Today's lunch" },
+      "last_updated": { "name": "Last updated" }
     },
     "binary_sensor": {
       "has_missing_work": { "name": "Has missing work" },
-      "test_within_24h": { "name": "Test within 24 hours" }
+      "test_within_24h": { "name": "Test within 24 hours" },
+      "status": { "name": "Status" }
     },
     "calendar": {
       "homework": { "name": "Homework" },

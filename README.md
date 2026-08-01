@@ -116,6 +116,22 @@ The device for each student also shows their **grade level** as the device model
 from the student profile (no toggle — it's fetched with the rest and degrades quietly if
 your token can't read it).
 
+### Integration health (a "Sycamore" service device)
+
+| Entity | Platform | State |
+| --- | --- | --- |
+| Last updated | sensor | Timestamp of the last **successful** poll (diagnostic) |
+| Status | binary_sensor | `problem` — **on** when the last refresh failed; `error` attribute has the reason (diagnostic) |
+
+Both stay **available even during a failure**, so you can automate on them (e.g. notify
+if *Status* is on, or if *Last updated* is more than a few hours old).
+
+> **`Unknown` is not "broken".** Between terms (or before any data posts) sensors like
+> *Grade average* and *Next test* read `Unknown` — they're alive, there's just no value
+> yet. That's different from `Unavailable` (which only happens on a real error). If you
+> ever want to be sure, check the **Status** sensor: green there means the integration is
+> fine and the `Unknown`s just mean "no school data right now."
+
 ## Automation examples
 
 Notify when a test is due within a day:

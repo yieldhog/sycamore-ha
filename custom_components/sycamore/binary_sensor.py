@@ -9,12 +9,14 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SycamoreConfigEntry
 from .const import DATA_HOMEWORK, DATA_MISSING
-from .entity import SycamoreStudentEntity
+from .coordinator import SycamoreDataUpdateCoordinator
+from .entity import SycamoreServiceEntity, SycamoreStudentEntity
 
 
 async def async_setup_entry(
@@ -32,6 +34,7 @@ async def async_setup_entry(
         entities.append(
             SycamoreTestSoonBinarySensor(coordinator, student["id"], student["name"])
         )
+    entities.append(SycamoreStatusBinarySensor(coordinator))
     async_add_entities(entities)
 
 
@@ -83,4 +86,37 @@ class SycamoreTestSoonBinarySensor(SycamoreStudentEntity, BinarySensorEntity):
                 {"title": t["title"], "subject": t["subject"], "due": t["due"].isoformat()}
                 for t in self._tests_soon()
             ]
+        }
+
+
+class SycamoreStatusBinarySensor(SycamoreServiceEntity, BinarySensorEntity):
+    """On when the last Sycamore refresh failed (integration health).
+
+    Stays available even during a failure (see SycamoreServiceEntity) so it can
+    actually report the problem, with the error surfaced as an attribute.
+    """
+
+    _attr_translation_key = "status"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
+        """Initialize the status binary sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_status"
+
+    @property
+    def is_on(self) -> bool:
+        return not self.coordinator.last_update_success
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        error = self.coordinator.last_exception
+        return {
+            "error": str(error) if error else None,
+            "last_success": (
+                self.coordinator.last_success.isoformat()
+                if self.coordinator.last_success
+                else None
+            ),
         }
