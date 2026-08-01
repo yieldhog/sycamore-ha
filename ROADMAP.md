@@ -98,4 +98,4 @@ calendar that advertises `DELETE_EVENT`, Google included.
       accepts custom-integration PRs (Feb 2026 Brands Proxy API); HA 2026.3+ and HACS
       now read a local `brand/` folder, so `ignore: brands` was dropped from CI.
 - [x] Ensure a **release** exists — `v0.1.0` stable published.
-- [ ] Open the PR to add `yieldhog/sycamore-ha` to the HACS default integration list.
+- [x] Open the PR to add `yieldhog/sycamore-ha` to the HACS default integration list.
