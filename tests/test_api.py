@@ -66,3 +66,16 @@ async def test_empty_body_is_empty_list(hass):
     """A 204 / empty body is treated as no rows, not an error."""
     client = _client_returning(hass, httpx.Response(204))
     assert await client.async_get_family_students("123") == []
+
+
+async def test_discipline_hits_correct_endpoint(hass):
+    """Discipline must call /Student/{id}/Discipline, not the old Discipline_Log.
+
+    The real Sycamore API exposes `Discipline` (confirmed in the sandbox);
+    `Discipline_Log` 404s. Pin the path so it can't regress.
+    """
+    client = _client_returning(hass, httpx.Response(200, json=[]))
+    await client.async_get_discipline("123")
+    url = client._client.get.call_args.args[0]
+    assert url.endswith("/Student/123/Discipline")
+    assert "Discipline_Log" not in url

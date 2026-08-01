@@ -46,8 +46,13 @@ against the dash source) and unit-tested in `tests/test_init.py`.
       `401 insufficient_scope` (needs the `families` scope the family-portal token
       lacks). Needs a higher-privilege token; also, its 401 would trip our auth
       handler, so it needs isolated error handling if added.
-- [ ] **Last graded assignment** — `Student/{id}/Assignment_Grades`; state = most
-      recent score, attrs = name/subject/date. Enables "just got an 88" automations.
+- [ ] **Last graded assignment** — "just got an 88" automations. Blocked on a
+      real payload sample: the sandbox has **no** `Assignment_Grades`; assignment
+      grades are `Student/{id}/Classes/{cid}/Grades` (fetch the class list first;
+      response is class-type-keyed unless `format=1`; `quarter=0` = all terms).
+      Couldn't sample it off-term (summer) — and the `Classes` endpoint lists a
+      `classes` scope the family token may lack (like Statistics). Revisit with a
+      live-term sample. Design is ready; just needs the field names.
 - [x] **Discipline events** — `Student/{id}/Discipline_Log`; opt-in options toggle
       (off by default) gates the fetch and a per-student *Discipline events* count
       sensor (records exposed as an attribute).
