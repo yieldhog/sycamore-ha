@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER
+from .const import DATA_DETAILS, DOMAIN, MANUFACTURER
 from .coordinator import SycamoreDataUpdateCoordinator
 
 
@@ -26,11 +26,20 @@ class SycamoreStudentEntity(CoordinatorEntity[SycamoreDataUpdateCoordinator]):
         super().__init__(coordinator)
         self._student_id = student_id
         self._student_name = student_name
+        # Enrich the device with the student's grade level when we have it
+        # (details are fetched in the first refresh before entities are added).
+        details = (
+            (coordinator.data or {})
+            .get("students", {})
+            .get(student_id, {})
+            .get(DATA_DETAILS, {})
+        )
+        grade = details.get("grade")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{student_id}")},
             name=student_name,
             manufacturer=MANUFACTURER,
-            model="Student",
+            model=f"{grade} Grade" if grade else "Student",
         )
 
     @property

@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-08-01
+
+### Added
+
+- **School events calendar** — `School/{id}/Events` as a **School events** calendar
+  entity (all-day and timed events) plus a **Next school event** timestamp sensor.
+  Gated by a *School events calendar* options toggle and needs a School ID (like lunch).
+- **Student profile details** — the device now shows the student's **grade level** as
+  its model, plus **Grade level** and **Homeroom teacher** diagnostic sensors. Fetched
+  with the normal refresh and degrades quietly if the token can't read the profile.
+
 ## [0.1.2] - 2026-08-01
 
 ### Added
@@ -82,6 +93,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.3]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.3
 [0.1.2]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.2
 [0.1.1]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.1
 [0.1.0]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.0

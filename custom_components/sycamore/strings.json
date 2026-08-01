@@ -7,11 +7,11 @@
         "data": {
           "token": "Access token",
           "family_id": "Family ID (optional)",
-          "school_id": "School ID (optional, enables lunch menu)"
+          "school_id": "School ID (optional, enables lunch menu + school events)"
         },
         "data_description": {
           "family_id": "Found in your Sycamore family portal. When set, students are discovered automatically. Requires the token's Families scope; if discovery fails, leave this blank to add students manually.",
-          "school_id": "Only needed for the cafeteria/lunch sensor."
+          "school_id": "Needed for the cafeteria/lunch sensor and the school events calendar."
         }
       },
       "select": {
@@ -56,6 +56,7 @@
           "attendance_enabled": "Attendance sensor",
           "lunch_enabled": "Lunch menu sensor",
           "discipline_enabled": "Discipline log sensor",
+          "events_enabled": "School events calendar",
           "calendar_autosync": "Auto-sync calendars after each refresh",
           "calendar_days": "Calendar sync window (days ahead)"
         },
@@ -65,6 +66,7 @@
           "attendance_enabled": "When off, the attendance endpoint is not polled and its sensors are removed.",
           "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed.",
           "discipline_enabled": "When on, the discipline log is polled and a per-student discipline-events sensor is added. Off by default.",
+          "events_enabled": "When on (and a School ID is set), the school calendar is polled and added as a 'School events' calendar plus a 'Next school event' sensor.",
           "calendar_autosync": "When on, each child with a target calendar is synced automatically after every poll. When off, use the sycamore.sync_calendar service manually.",
           "calendar_days": "How many days ahead of assignments/tests to put on the calendar."
         }
@@ -82,6 +84,9 @@
       "next_test": { "name": "Next test" },
       "attendance": { "name": "Attendance events" },
       "discipline": { "name": "Discipline events" },
+      "grade_level": { "name": "Grade level" },
+      "homeroom_teacher": { "name": "Homeroom teacher" },
+      "next_school_event": { "name": "Next school event" },
       "todays_lunch": { "name": "Today's lunch" }
     },
     "binary_sensor": {
@@ -90,7 +95,8 @@
     },
     "calendar": {
       "homework": { "name": "Homework" },
-      "lunch": { "name": "Lunch" }
+      "lunch": { "name": "Lunch" },
+      "school_events": { "name": "School events" }
     },
     "todo": {
       "missing_work": { "name": "Missing work" }

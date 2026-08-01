@@ -11,11 +11,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import SycamoreAuthError, SycamoreClient, SycamoreConnectionError
 from .const import (
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
+    CONF_ENABLE_EVENTS,
     CONF_ENABLE_LUNCH,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
@@ -25,13 +27,16 @@ from .const import (
     CONF_STUDENTS,
     DATA_ATTENDANCE,
     DATA_CAFETERIA,
+    DATA_DETAILS,
     DATA_DISCIPLINE,
     DATA_GRADES,
     DATA_HOMEWORK,
     DATA_MISSING,
     DATA_NAME,
+    DATA_SCHOOL_EVENTS,
     DEFAULT_ENABLE_ATTENDANCE,
     DEFAULT_ENABLE_DISCIPLINE,
+    DEFAULT_ENABLE_EVENTS,
     DEFAULT_ENABLE_LUNCH,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
@@ -42,6 +47,7 @@ from .helpers import (
     collapse_ws,
     detect_kind,
     parse_due_date,
+    parse_event_time,
     strip_html,
     subject_icon,
     to_float,
@@ -76,6 +82,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._discipline_enabled: bool = options.get(
             CONF_ENABLE_DISCIPLINE, DEFAULT_ENABLE_DISCIPLINE
+        )
+        self._events_enabled: bool = options.get(
+            CONF_ENABLE_EVENTS, DEFAULT_ENABLE_EVENTS
         )
         interval = int(
             options.get(CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES)
@@ -115,6 +124,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Whether the discipline endpoint/entities are enabled."""
         return self._discipline_enabled
 
+    @property
+    def events_enabled(self) -> bool:
+        """Whether the school events calendar is enabled."""
+        return self._events_enabled
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every student concurrently and reshape into entity-ready data."""
         today = datetime.now().date()
@@ -126,6 +140,18 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if self._school_id and self._lunch_enabled:
                 raw_cafeteria = await self.client.async_get_cafeteria(self._school_id)
                 cafeteria = self._shape_cafeteria(raw_cafeteria)
+            events: list[dict[str, Any]] | None = None
+            if self._school_id and self._events_enabled:
+                # Isolated: an inaccessible events endpoint shouldn't fail the
+                # whole refresh (auth errors still propagate below).
+                try:
+                    events = self._shape_school_events(
+                        await self.client.async_get_events(self._school_id)
+                    )
+                except SycamoreAuthError:
+                    raise
+                except SycamoreConnectionError:
+                    _LOGGER.debug("School events fetch failed; leaving unset")
         except SycamoreAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except SycamoreConnectionError as err:
@@ -134,6 +160,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return {
             "students": {sid: data for sid, data in results},
             DATA_CAFETERIA: cafeteria,
+            DATA_SCHOOL_EVENTS: events,
         }
 
     async def _fetch_student(
@@ -145,6 +172,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.client.async_get_grades(sid),
             self.client.async_get_homework(sid),
             self.client.async_get_missing(sid),
+            self._safe_details(sid),
         ]
         # Optional endpoints are appended only when enabled; track each one's
         # slot so results stay correctly matched regardless of which are on.
@@ -156,7 +184,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             indices["discipline"] = len(calls)
             calls.append(self.client.async_get_discipline(sid))
         results = await asyncio.gather(*calls)
-        grades_raw, homework_raw, missing_raw = results[0], results[1], results[2]
+        grades_raw, homework_raw, missing_raw, details_raw = results[:4]
         attendance_raw = (
             results[indices["attendance"]] if "attendance" in indices else []
         )
@@ -171,8 +199,24 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             DATA_MISSING: self._shape_missing(missing_raw),
             DATA_ATTENDANCE: self._shape_events(attendance_raw),
             DATA_DISCIPLINE: self._shape_events(discipline_raw),
+            DATA_DETAILS: self._shape_details(details_raw),
         }
         return sid, data
+
+    async def _safe_details(self, sid: str) -> dict[str, Any]:
+        """Fetch student details, tolerating a missing/blocked endpoint.
+
+        Details only enrich the device (grade, homeroom), so a failure here
+        must never break the core refresh — but a real auth failure still
+        propagates so reauth can trigger.
+        """
+        try:
+            return await self.client.async_get_student_details(sid)
+        except SycamoreAuthError:
+            raise
+        except SycamoreConnectionError:
+            _LOGGER.debug("Student details fetch failed for %s", sid)
+            return {}
 
     def _shape_grades(
         self, sid: str, raw: list[dict[str, Any]]
@@ -258,6 +302,48 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # the raw rows as an attribute so users can template whatever their
         # school reports.
         return {"count": len(raw), "records": raw}
+
+    def _shape_details(self, raw: dict[str, Any]) -> dict[str, Any]:
+        # Static-ish profile info that enriches the device. Only the safe,
+        # useful fields — no PII (DOB, gender, IDs) or the locker combo.
+        if not raw:
+            return {}
+        return {
+            "grade": (raw.get("Grade") or "").strip() or None,
+            "homeroom_teacher": (raw.get("HomeroomTeacher") or "").strip() or None,
+            "advisor": (raw.get("Advisor") or "").strip() or None,
+            "locker": (raw.get("LockerNum") or "").strip() or None,
+        }
+
+    def _shape_school_events(
+        self, raw: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Turn School Events rows into sorted calendar-ready dicts.
+
+        All-day rows get ``date`` start/end; timed rows get local-timezone
+        ``datetime`` start/end (start + Duration). Sorted by start.
+        """
+        items: list[tuple[datetime, dict[str, Any]]] = []
+        for ev in raw or []:
+            parsed = parse_event_time(ev)
+            if parsed is None:
+                continue
+            start_dt, duration, all_day = parsed
+            title = (ev.get("Title") or "").strip() or "Event"
+            uid = str(ev.get("ID") or "") or None
+            if all_day:
+                start: date | datetime = start_dt.date()
+                end: date | datetime = start_dt.date() + timedelta(days=1)
+            else:
+                start = start_dt.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+                end = start + (duration or timedelta(minutes=30))
+                if end <= start:
+                    end = start + timedelta(minutes=30)
+            items.append(
+                (start_dt, {"uid": uid, "title": title, "start": start, "end": end})
+            )
+        items.sort(key=lambda t: t[0])
+        return [shaped for _, shaped in items]
 
     def _shape_cafeteria(self, raw: dict[str, Any]) -> list[dict[str, Any]]:
         """Turn the ``{MM/DD/YYYY: [meals]}`` payload into sorted per-day menus.

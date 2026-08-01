@@ -143,7 +143,16 @@ class SycamoreClient:
         """GET /Student/{id}/Discipline_Log."""
         return self._as_list(await self._get(f"Student/{student_id}/Discipline_Log"))
 
+    async def async_get_student_details(self, student_id: str) -> dict[str, Any]:
+        """GET /Student/{id} — profile details (grade, homeroom, etc.)."""
+        data = await self._get(f"Student/{student_id}")
+        return data if isinstance(data, dict) else {}
+
     # --- School-level ------------------------------------------------------
+    async def async_get_events(self, school_id: str) -> list[dict[str, Any]]:
+        """GET /School/{id}/Events (school calendar)."""
+        return self._as_list(await self._get(f"School/{school_id}/Events"))
+
     async def async_get_cafeteria(self, school_id: str) -> dict[str, Any]:
         """GET /School/{id}/Cafeteria (lunch menu).
 

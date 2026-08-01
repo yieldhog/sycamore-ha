@@ -71,10 +71,10 @@ If you leave Family ID blank, you can add students by hand (Student ID + display
   "next N days" horizon: the *Upcoming work* sensor reports the assignments due within
   this window (its count is the state; the assignments are listed in its attributes).
   Set it to `14` for a two-week view, and so on.
-- **Attendance**, **Lunch**, and **Discipline** toggles — each gates its own endpoint,
-  so turning one off stops the coordinator polling it and removes its entities.
-  Discipline is **off by default** (it's niche and sensitive); turn it on to add a
-  per-student *Discipline events* sensor.
+- **Attendance**, **Lunch**, **Discipline**, and **School events** toggles — each gates
+  its own endpoint, so turning one off stops the coordinator polling it and removes its
+  entities. Discipline is **off by default** (niche and sensitive); School events needs a
+  School ID and adds a *School events* calendar + *Next school event* sensor.
 
 Every other sensor can be enabled or disabled individually from its own entity settings
 in Home Assistant.
@@ -96,6 +96,8 @@ Per student (device):
 | Upcoming tests | sensor | Count of tests/quizzes due within the focus window; `tests` attr lists them by class (title, subject, due, kind) |
 | Attendance events | sensor | Count of attendance records |
 | Discipline events | sensor | Count of discipline-log records (`records` attr); **off by default** — enable in options |
+| Grade level | sensor | The student's grade (e.g. `7th`); diagnostic |
+| Homeroom teacher | sensor | Homeroom teacher name; diagnostic |
 | Has missing work | binary_sensor | `on` when anything is missing |
 | Test within 24 hours | binary_sensor | `on` when a test/quiz is due within a day |
 | Homework | calendar | Assignments and tests by due date |
@@ -107,6 +109,12 @@ School-level (only with a School ID):
 | --- | --- | --- |
 | Today's lunch | sensor | Today's meal names; `meals` attr = today's items, `menu` attr = the full pulled week (dates + meals) |
 | Lunch | calendar | The pulled cafeteria menu, one all-day event per day (meal names as summary, full details in the description) |
+| School events | calendar | The school calendar — all-day and timed events (title, start/end) |
+| Next school event | sensor | Start time of the next school event (`timestamp`); title/all-day as attributes |
+
+The device for each student also shows their **grade level** as the device model, pulled
+from the student profile (no toggle — it's fetched with the rest and degrades quietly if
+your token can't read it).
 
 ## Automation examples
 

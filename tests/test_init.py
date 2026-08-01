@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -41,6 +42,23 @@ class FakeClient:
 
     async def async_get_discipline(self, student_id):
         return [{"Date": "01/15/2026", "Type": "Detention", "Description": "Late"}]
+
+    async def async_get_student_details(self, student_id):
+        return {
+            "FirstName": "Jane",
+            "Grade": "7th",
+            "HomeroomTeacher": "Doug Hager",
+            "Advisor": " ",
+            "LockerNum": "",
+        }
+
+    async def async_get_events(self, school_id):
+        return [
+            {"ID": 1, "Title": "First Day", "Datetime": "2026-08-17 06:00:00",
+             "Day": "08/17/26", "Start": "06:00", "Duration": "00:00", "AllDay": 1},
+            {"ID": 2, "Title": "Orientation", "Datetime": "2026-08-14 16:00:00",
+             "Day": "08/14/26", "Start": "16:00", "Duration": "00:45", "AllDay": 0},
+        ]
 
     async def async_get_cafeteria(self, school_id):
         return []
@@ -135,6 +153,51 @@ async def test_calendar_and_todo_present(hass: HomeAssistant):
     await _setup(hass)
     assert hass.states.get("calendar.jane_homework") is not None
     assert hass.states.get("todo.jane_missing_work") is not None
+
+
+async def test_student_details_enrich_device_and_sensors(hass: HomeAssistant):
+    """Profile details set the device model + grade/homeroom diagnostic sensors."""
+    entry = await _setup(hass)
+
+    assert hass.states.get("sensor.jane_grade_level").state == "7th"
+    assert hass.states.get("sensor.jane_homeroom_teacher").state == "Doug Hager"
+
+    device = dr.async_get(hass).async_get_device(
+        identifiers={(DOMAIN, f"{entry.entry_id}_111")}
+    )
+    assert device is not None
+    assert device.model == "7th Grade"
+
+
+async def test_school_events_calendar_and_sensor(hass: HomeAssistant):
+    """With a School ID, the events endpoint drives a calendar + next-event sensor."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1002",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    cal_eid = reg.async_get_entity_id(
+        "calendar", DOMAIN, f"{entry.entry_id}_school_events"
+    )
+    assert cal_eid
+    assert hass.states.get(cal_eid) is not None
+
+    sensor_eid = reg.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_next_school_event"
+    )
+    assert sensor_eid
+    assert hass.states.get(sensor_eid).attributes["device_class"] == "timestamp"
 
 
 async def test_unload(hass: HomeAssistant):
