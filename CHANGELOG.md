@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-08-01
+
+### Added
+
+- **Integration health entities** on a new **Sycamore** service device:
+  - **Last updated** — a timestamp sensor showing the last *successful* poll, so
+    you can tell fresh data from stale (and automate `if last update > Nh → notify`).
+  - **Status** — a problem binary sensor that turns **on** when a refresh fails,
+    with the error as an attribute.
+  Both are diagnostic and stay **available even during a failure** (a normal
+  coordinator entity would go unavailable exactly when you'd want the signal),
+  so an off-season *Unknown* on the grade sensors reads as "no data yet," not
+  "broken."
+
 ## [0.1.3] - 2026-08-01
 
 ### Added
@@ -93,6 +107,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.4]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.4
 [0.1.3]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.3
 [0.1.2]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.2
 [0.1.1]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.1

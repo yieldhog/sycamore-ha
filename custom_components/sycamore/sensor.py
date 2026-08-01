@@ -27,7 +27,11 @@ from .const import (
     DATA_SCHOOL_EVENTS,
 )
 from .coordinator import SycamoreDataUpdateCoordinator
-from .entity import SycamoreSchoolEntity, SycamoreStudentEntity
+from .entity import (
+    SycamoreSchoolEntity,
+    SycamoreServiceEntity,
+    SycamoreStudentEntity,
+)
 
 
 async def async_setup_entry(
@@ -62,6 +66,7 @@ async def async_setup_entry(
         entities.append(SycamoreLunchSensor(coordinator))
     if coordinator.school_id and coordinator.events_enabled:
         entities.append(SycamoreNextEventSensor(coordinator))
+    entities.append(SycamoreLastUpdatedSensor(coordinator))
     async_add_entities(entities)
 
     known: set[str] = set()
@@ -530,6 +535,24 @@ class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
                 for day in self._days()
             ],
         }
+
+
+class SycamoreLastUpdatedSensor(SycamoreServiceEntity, SensorEntity):
+    """When Sycamore was last polled successfully (integration health)."""
+
+    _attr_translation_key = "last_updated"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:cloud-check-variant"
+
+    def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
+        """Initialize the last-updated sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_last_updated"
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.coordinator.last_success
 
 
 class SycamoreNextEventSensor(SycamoreSchoolEntity, SensorEntity):

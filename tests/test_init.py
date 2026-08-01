@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -198,6 +198,39 @@ async def test_school_events_calendar_and_sensor(hass: HomeAssistant):
     )
     assert sensor_eid
     assert hass.states.get(sensor_eid).attributes["device_class"] == "timestamp"
+
+
+async def test_health_entities(hass: HomeAssistant):
+    """Last-updated + status report success, and survive a failed refresh."""
+    from custom_components.sycamore.api import SycamoreConnectionError
+
+    entry = await _setup(hass)
+    coordinator = entry.runtime_data
+
+    last_updated = hass.states.get("sensor.sycamore_last_updated")
+    assert last_updated is not None
+    assert last_updated.state not in ("unknown", "unavailable")
+    good_time = last_updated.state
+
+    status = hass.states.get("binary_sensor.sycamore_status")
+    assert status.state == "off"  # problem device_class -> "off" means OK
+
+    # Force the next refresh to fail.
+    with patch.object(
+        FakeClient,
+        "async_get_grades",
+        new=AsyncMock(side_effect=SycamoreConnectionError("down")),
+    ):
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+    status = hass.states.get("binary_sensor.sycamore_status")
+    assert status.state == "on"  # problem detected
+    assert status.attributes["error"]
+    # The health sensors stay available and keep the last good time.
+    last_updated = hass.states.get("sensor.sycamore_last_updated")
+    assert last_updated.state == good_time
+    assert last_updated.state != "unavailable"
 
 
 async def test_unload(hass: HomeAssistant):
