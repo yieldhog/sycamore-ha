@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-08-01
+
+### Added
+
+- **Discipline events sensor** — a per-student sensor backed by
+  `Student/{id}/Discipline_Log`, showing a count with the raw records as a
+  `records` attribute. It's **off by default** (niche and sensitive); enable it
+  with the *Discipline log sensor* toggle in the integration options, which also
+  gates the extra API call.
+
+### Internal
+
+- Added a pinned `ruff` lint job to CI, and expanded the config-flow test suite
+  (reauth success, options flow, manual "add another" loop, already-configured
+  abort).
+
 ## [0.1.1] - 2026-07-31
 
 Packaging release so the Sycamore brand renders in Home Assistant. No changes to
@@ -66,6 +82,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.2]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.2
 [0.1.1]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.1
 [0.1.0]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.0
 [0.1.0b1]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.0b1
