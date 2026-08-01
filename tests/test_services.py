@@ -39,6 +39,9 @@ class _Client:
     async def async_get_attendance(self, student_id):
         return []
 
+    async def async_get_student_details(self, student_id):
+        return {}
+
     async def async_get_cafeteria(self, school_id):
         return {}
 

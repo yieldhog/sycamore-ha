@@ -7,7 +7,7 @@ isolation and reused across platforms (sensor/calendar/todo).
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 # --- Subject name cleanup (ported from app/main.py: clean_subject_name) ---
 # Ordered so the "<Nth> Grade-" prefix is tried before the "6H " section prefix:
@@ -129,3 +129,30 @@ def to_float(value: object) -> float | None:
         return float(value)  # type: ignore[arg-type]
     except (ValueError, TypeError):
         return None
+
+
+def parse_event_time(
+    event: dict,
+) -> tuple[datetime, timedelta, bool] | None:
+    """Parse a School Events row into (naive start, duration, all_day).
+
+    Sycamore events carry ``Datetime`` ('YYYY-MM-DD HH:MM:SS', school-local),
+    a ``Duration`` ('HH:MM'), and an ``AllDay`` 0/1 flag. The start is returned
+    naive (the caller attaches the local timezone); an unparseable row is None.
+    """
+    raw = event.get("Datetime")
+    if not raw:
+        return None
+    try:
+        start = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return None
+    all_day = str(event.get("AllDay", "0")).strip() in ("1", "true", "True")
+    duration = timedelta()
+    parts = (event.get("Duration") or "").split(":")
+    if len(parts) == 2:
+        try:
+            duration = timedelta(hours=int(parts[0]), minutes=int(parts[1]))
+        except (ValueError, TypeError):
+            duration = timedelta()
+    return start, duration, all_day

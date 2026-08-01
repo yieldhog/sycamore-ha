@@ -51,8 +51,13 @@ against the dash source) and unit-tested in `tests/test_init.py`.
 - [x] **Discipline events** — `Student/{id}/Discipline_Log`; opt-in options toggle
       (off by default) gates the fetch and a per-student *Discipline events* count
       sensor (records exposed as an attribute).
-- [ ] **School events calendar** + "days until next day off" — school-level
-      calendar endpoint (better as a `calendar` entity than a sensor).
+- [x] **School events calendar** — `School/{id}/Events` as a `calendar` entity
+      (all-day + timed) plus a *Next school event* timestamp sensor, gated by a
+      toggle + School ID. ("Days until next day off" isn't derivable — the feed
+      has no no-school flag — so that piece is dropped.)
+- [x] **Student details** — `Student/{id}` enriches the device (grade level as the
+      model) and adds *Grade level* + *Homeroom teacher* diagnostic sensors;
+      fetched with the core refresh and degrades quietly if the token can't read it.
 - [x] **Lunch as a week calendar** — shipped.
 
 For each: add the fetch to `api.py`, wire into the coordinator behind the toggle,

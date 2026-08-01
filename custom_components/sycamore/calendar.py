@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import SycamoreConfigEntry
-from .const import DATA_CAFETERIA, DATA_HOMEWORK
+from .const import DATA_CAFETERIA, DATA_HOMEWORK, DATA_SCHOOL_EVENTS
 from .entity import SycamoreSchoolEntity, SycamoreStudentEntity
 
 
@@ -26,6 +27,8 @@ async def async_setup_entry(
     ]
     if coordinator.school_id and coordinator.lunch_enabled:
         entities.append(SycamoreLunchCalendar(coordinator))
+    if coordinator.school_id and coordinator.events_enabled:
+        entities.append(SycamoreEventsCalendar(coordinator))
     async_add_entities(entities)
 
 
@@ -126,3 +129,54 @@ class SycamoreLunchCalendar(SycamoreSchoolEntity, CalendarEntity):
         start = start_date.date()
         end = end_date.date()
         return [e for e in self._events() if e.start < end and e.end > start]
+
+
+def _as_aware(value: date | datetime, tzinfo) -> datetime:
+    """Normalize an all-day date or a datetime to an aware datetime."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=tzinfo)
+    return datetime.combine(value, time.min, tzinfo=tzinfo)
+
+
+class SycamoreEventsCalendar(SycamoreSchoolEntity, CalendarEntity):
+    """A read-only calendar of the school's events (all-day and timed)."""
+
+    _attr_translation_key = "school_events"
+    _attr_icon = "mdi:calendar-star"
+
+    def __init__(self, coordinator) -> None:
+        """Initialize the school events calendar."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_school_events"
+
+    def _events(self) -> list[CalendarEvent]:
+        return [
+            CalendarEvent(
+                start=ev["start"],
+                end=ev["end"],
+                summary=ev["title"],
+                uid=ev["uid"],
+            )
+            for ev in (self.coordinator.data or {}).get(DATA_SCHOOL_EVENTS) or []
+        ]
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        """The next upcoming school event."""
+        now = dt_util.now()
+        upcoming = sorted(
+            (e for e in self._events() if _as_aware(e.end, now.tzinfo) > now),
+            key=lambda e: _as_aware(e.start, now.tzinfo),
+        )
+        return upcoming[0] if upcoming else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        """Return school events intersecting the requested range."""
+        tz = start_date.tzinfo
+        return [
+            e
+            for e in self._events()
+            if _as_aware(e.start, tz) < end_date and _as_aware(e.end, tz) > start_date
+        ]

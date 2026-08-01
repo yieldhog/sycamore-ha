@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -19,10 +19,12 @@ from homeassistant.util import slugify
 from . import SycamoreConfigEntry
 from .const import (
     DATA_ATTENDANCE,
+    DATA_DETAILS,
     DATA_DISCIPLINE,
     DATA_GRADES,
     DATA_HOMEWORK,
     DATA_MISSING,
+    DATA_SCHOOL_EVENTS,
 )
 from .coordinator import SycamoreDataUpdateCoordinator
 from .entity import SycamoreSchoolEntity, SycamoreStudentEntity
@@ -51,8 +53,15 @@ async def async_setup_entry(
             entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
         if coordinator.discipline_enabled:
             entities.append(SycamoreDisciplineSensor(coordinator, sid, name))
+        # Detail sensors only when the profile endpoint returned something.
+        students = (coordinator.data or {}).get("students", {})
+        if students.get(sid, {}).get(DATA_DETAILS):
+            entities.append(SycamoreGradeLevelSensor(coordinator, sid, name))
+            entities.append(SycamoreHomeroomTeacherSensor(coordinator, sid, name))
     if coordinator.school_id and coordinator.lunch_enabled:
         entities.append(SycamoreLunchSensor(coordinator))
+    if coordinator.school_id and coordinator.events_enabled:
+        entities.append(SycamoreNextEventSensor(coordinator))
     async_add_entities(entities)
 
     known: set[str] = set()
@@ -439,6 +448,42 @@ class SycamoreDisciplineSensor(_StudentCountSensor):
         return {"records": self.student_data.get(DATA_DISCIPLINE, {}).get("records", [])}
 
 
+class _SycamoreDetailSensor(SycamoreStudentEntity, SensorEntity):
+    """Base for the static profile-detail sensors (grade level, homeroom)."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _detail_key: str
+    _slug: str
+
+    def __init__(self, coordinator, student_id, student_name) -> None:  # noqa: D107
+        super().__init__(coordinator, student_id, student_name)
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_{student_id}_{self._slug}"
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        return self.student_data.get(DATA_DETAILS, {}).get(self._detail_key)
+
+
+class SycamoreGradeLevelSensor(_SycamoreDetailSensor):
+    """The student's grade level (e.g. '7th')."""
+
+    _detail_key = "grade"
+    _slug = "grade_level"
+    _attr_translation_key = "grade_level"
+    _attr_icon = "mdi:school-outline"
+
+
+class SycamoreHomeroomTeacherSensor(_SycamoreDetailSensor):
+    """The student's homeroom teacher."""
+
+    _detail_key = "homeroom_teacher"
+    _slug = "homeroom_teacher"
+    _attr_translation_key = "homeroom_teacher"
+    _attr_icon = "mdi:human-male-board"
+
+
 class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
     """Today's cafeteria menu (school-level)."""
 
@@ -484,4 +529,50 @@ class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
                 }
                 for day in self._days()
             ],
+        }
+
+
+class SycamoreNextEventSensor(SycamoreSchoolEntity, SensorEntity):
+    """Start time of the next upcoming school event (school-level)."""
+
+    _attr_translation_key = "next_school_event"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:calendar-star"
+
+    def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
+        """Initialize the next-event sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_next_school_event"
+
+    def _next(self) -> dict[str, Any] | None:
+        now = dt_util.now()
+        upcoming = []
+        for ev in (self.coordinator.data or {}).get(DATA_SCHOOL_EVENTS) or []:
+            start = ev["start"]
+            start_dt = (
+                start
+                if isinstance(start, datetime)
+                else dt_util.start_of_local_day(start)
+            )
+            if start_dt >= now:
+                upcoming.append((start_dt, ev))
+        return min(upcoming, key=lambda t: t[0])[1] if upcoming else None
+
+    @property
+    def native_value(self) -> datetime | None:
+        item = self._next()
+        if item is None:
+            return None
+        start = item["start"]
+        return start if isinstance(start, datetime) else dt_util.start_of_local_day(start)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._next()
+        if item is None:
+            return {}
+        start = item["start"]
+        return {
+            "title": item["title"],
+            "all_day": not isinstance(start, datetime),
         }

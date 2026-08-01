@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -11,10 +11,32 @@ from custom_components.sycamore.helpers import (
     collapse_ws,
     detect_kind,
     parse_due_date,
+    parse_event_time,
     strip_html,
     subject_icon,
     to_float,
 )
+
+
+def test_parse_event_time_all_day():
+    result = parse_event_time(
+        {"Datetime": "2026-08-17 06:00:00", "Duration": "00:00", "AllDay": 1}
+    )
+    assert result == (datetime(2026, 8, 17, 6, 0, 0), timedelta(), True)
+
+
+def test_parse_event_time_timed_with_duration():
+    start, duration, all_day = parse_event_time(
+        {"Datetime": "2026-08-14 16:00:00", "Duration": "00:45", "AllDay": 0}
+    )
+    assert start == datetime(2026, 8, 14, 16, 0, 0)
+    assert duration == timedelta(minutes=45)
+    assert all_day is False
+
+
+@pytest.mark.parametrize("bad", [{}, {"Datetime": ""}, {"Datetime": "nope"}])
+def test_parse_event_time_bad_rows(bad):
+    assert parse_event_time(bad) is None
 
 
 @pytest.mark.parametrize(
