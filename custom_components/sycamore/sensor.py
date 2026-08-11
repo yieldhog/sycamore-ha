@@ -57,11 +57,6 @@ async def async_setup_entry(
             entities.append(SycamoreAttendanceSensor(coordinator, sid, name))
         if coordinator.discipline_enabled:
             entities.append(SycamoreDisciplineSensor(coordinator, sid, name))
-        # Detail sensors only when the profile endpoint returned something.
-        students = (coordinator.data or {}).get("students", {})
-        if students.get(sid, {}).get(DATA_DETAILS):
-            entities.append(SycamoreGradeLevelSensor(coordinator, sid, name))
-            entities.append(SycamoreHomeroomTeacherSensor(coordinator, sid, name))
     if coordinator.school_id and coordinator.lunch_enabled:
         entities.append(SycamoreLunchSensor(coordinator))
     if coordinator.school_id and coordinator.events_enabled:
@@ -69,33 +64,38 @@ async def async_setup_entry(
     entities.append(SycamoreLastUpdatedSensor(coordinator))
     async_add_entities(entities)
 
-    known: set[str] = set()
+    # Per-class grade sensors and the profile-detail sensors are both added
+    # dynamically. Classes appear as grades post; the detail sensors wait for
+    # the profile endpoint to return — which may be a *later* refresh if it
+    # failed/500'd at setup — so they must not be gated on the first refresh.
+    known_grades: set[str] = set()
+    known_details: set[str] = set()
 
     @callback
-    def _add_grade_sensors() -> None:
+    def _add_dynamic_entities() -> None:
         new: list[SensorEntity] = []
         students = (coordinator.data or {}).get("students", {})
         for student in coordinator.students:
             sid = student["id"]
-            for grade in students.get(sid, {}).get(DATA_GRADES, []):
+            name = student["name"]
+            sdata = students.get(sid, {})
+            for grade in sdata.get(DATA_GRADES, []):
                 subject = grade["subject"]
                 key = f"{sid}:{subject}"
-                if key in known:
+                if key in known_grades:
                     continue
-                known.add(key)
-                new.append(
-                    SycamoreGradeSensor(coordinator, sid, student["name"], subject)
-                )
-                new.append(
-                    SycamoreGradePercentSensor(
-                        coordinator, sid, student["name"], subject
-                    )
-                )
+                known_grades.add(key)
+                new.append(SycamoreGradeSensor(coordinator, sid, name, subject))
+                new.append(SycamoreGradePercentSensor(coordinator, sid, name, subject))
+            if sid not in known_details and sdata.get(DATA_DETAILS):
+                known_details.add(sid)
+                new.append(SycamoreGradeLevelSensor(coordinator, sid, name))
+                new.append(SycamoreHomeroomTeacherSensor(coordinator, sid, name))
         if new:
             async_add_entities(new)
 
-    _add_grade_sensors()
-    entry.async_on_unload(coordinator.async_add_listener(_add_grade_sensors))
+    _add_dynamic_entities()
+    entry.async_on_unload(coordinator.async_add_listener(_add_dynamic_entities))
 
 
 class _SycamoreGradeBase(SycamoreStudentEntity, SensorEntity):
@@ -378,7 +378,7 @@ class _SycamoreNextBase(SycamoreStudentEntity, SensorEntity):
         )
 
     def _next(self) -> dict[str, Any] | None:
-        today = datetime.now().date()
+        today = dt_util.now().date()
         items = [
             hw
             for hw in self.student_data.get(DATA_HOMEWORK, [])
@@ -504,7 +504,7 @@ class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
         return (self.coordinator.data or {}).get("cafeteria") or []
 
     def _today_meals(self) -> list[dict[str, Any]]:
-        today = datetime.now().date()
+        today = dt_util.now().date()
         for day in self._days():
             if day["date"] == today:
                 return day["meals"]

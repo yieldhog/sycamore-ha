@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-08-11
+
+### Fixed
+
+- **Profile sensors now appear whenever the profile endpoint first succeeds.**
+  The **Grade level** and **Homeroom teacher** sensors were created only if the
+  `Student/{id}` profile call succeeded on the *first* refresh, so a transient
+  failure (e.g. a 500) hid them until you reloaded the integration. They're now
+  added dynamically on whichever refresh first returns profile data — the same
+  way per-class grade sensors already appear.
+- **Consistent "today" across timezones.** Several "due today/soon" checks used
+  the system clock (`datetime.now()`) instead of Home Assistant's configured
+  timezone. They now use HA's timezone (`dt_util.now()`), avoiding an off-by-one
+  around midnight when HA's timezone differs from the host clock.
+
+### Internal
+
+- Removed an unreachable branch in the API client's retry loop (the final
+  attempt already raises on a persistent error); no behavior change.
+
 ## [0.1.8] - 2026-08-11
 
 ### Added
@@ -175,6 +195,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.9]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.9
 [0.1.8]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.8
 [0.1.7]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.7
 [0.1.6]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.6

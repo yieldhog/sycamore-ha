@@ -110,11 +110,12 @@ class SycamoreClient:
                 )
             if resp.status_code == 204 or not resp.content:
                 return []
-            # Retry transient server-side errors a few times before failing.
-            if (
-                resp.status_code in _RETRY_STATUSES
-                and attempt < _MAX_ATTEMPTS - 1
-            ):
+            # Retry transient server-side errors, but only while attempts
+            # remain: the retry guard requires attempt < _MAX_ATTEMPTS - 1, so
+            # on the final attempt a retryable status falls through to the
+            # HTTP-error raise below. The loop therefore always returns or
+            # raises within its last iteration — it never exits normally.
+            if resp.status_code in _RETRY_STATUSES and attempt < _MAX_ATTEMPTS - 1:
                 delay = _RETRY_BACKOFF * (2**attempt)
                 _LOGGER.debug(
                     "Sycamore %s returned HTTP %s; retrying in %.1fs (attempt %d/%d)",
@@ -148,11 +149,6 @@ class SycamoreClient:
                 raise SycamoreApiError(
                     f"Bad JSON from {path}: {err}", status_code=resp.status_code
                 ) from err
-        # Loop only falls through here if every attempt was a retryable status.
-        raise SycamoreApiError(
-            f"{path} returned HTTP {resp.status_code} after {_MAX_ATTEMPTS} attempts",
-            status_code=resp.status_code,
-        )
 
     @staticmethod
     def _as_list(data: Any) -> list[dict[str, Any]]:
