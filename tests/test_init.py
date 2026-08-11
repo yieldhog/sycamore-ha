@@ -155,6 +155,45 @@ async def test_calendar_and_todo_present(hass: HomeAssistant):
     assert hass.states.get("todo.jane_missing_work") is not None
 
 
+async def test_calendar_target_skips_dedicated_calendar(hass: HomeAssistant):
+    """A student mapped to an existing calendar gets no dedicated calendar entity.
+
+    The unmapped sibling still gets one, and the mapped child's other homework
+    sensors are unaffected (only the dedicated calendar is skipped).
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [
+                {"id": "111", "name": "Jane"},
+                {"id": "222", "name": "Sam"},
+            ],
+        },
+        options={"calendar_targets": {"111": "calendar.family"}},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    # Jane is routed to an existing calendar -> no dedicated calendar entity.
+    assert (
+        reg.async_get_entity_id("calendar", DOMAIN, f"{entry.entry_id}_111_homework")
+        is None
+    )
+    # Sam is unmapped -> still gets a dedicated calendar.
+    assert (
+        reg.async_get_entity_id("calendar", DOMAIN, f"{entry.entry_id}_222_homework")
+        is not None
+    )
+    # Jane's homework-derived sensors are unaffected.
+    assert hass.states.get("sensor.jane_upcoming_work") is not None
+
+
 async def test_student_details_enrich_device_and_sensors(hass: HomeAssistant):
     """Profile details set the device model + grade/homeroom diagnostic sensors."""
     entry = await _setup(hass)

@@ -19,11 +19,18 @@ async def async_setup_entry(
     entry: SycamoreConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up a homework calendar per student, plus a school lunch calendar."""
+    """Set up a homework calendar per student, plus a school lunch calendar.
+
+    A student mapped to an existing calendar (``calendar_targets``) syncs into
+    that calendar instead, so we skip creating a dedicated read-only one for
+    them (their homework sensors are unaffected).
+    """
     coordinator = entry.runtime_data
+    targets = coordinator.calendar_targets
     entities: list[CalendarEntity] = [
         SycamoreHomeworkCalendar(coordinator, s["id"], s["name"])
         for s in coordinator.students
+        if not targets.get(s["id"])
     ]
     if coordinator.school_id and coordinator.lunch_enabled:
         entities.append(SycamoreLunchCalendar(coordinator))

@@ -97,6 +97,8 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
         self._school_id: str | None = None
         self._discovered: list[dict[str, Any]] = []
         self._students: list[dict[str, str]] = []
+        # student_id -> existing calendar to sync into (blank = dedicated one).
+        self._calendar_targets: dict[str, str] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -159,7 +161,7 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
                 for sid in user_input[CONF_STUDENTS]
             ]
-            return self._create_entry()
+            return await self.async_step_calendars()
 
         options = [
             SelectOptionDict(value=str(s.get("ID")), label=_student_label(s))
@@ -198,7 +200,7 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
             if not self.unique_id:
                 await self.async_set_unique_id(f"token-{self._token[:12]}")
                 self._abort_if_unique_id_configured()
-            return self._create_entry()
+            return await self.async_step_calendars()
 
         schema = vol.Schema(
             {
@@ -211,9 +213,46 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="manual", data_schema=schema, errors=errors
         )
 
+    async def async_step_calendars(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Per child: keep a dedicated calendar, or sync into an existing one.
+
+        One optional calendar picker per student. Blank keeps the default
+        dedicated (read-only) Sycamore calendar; choosing an existing writable
+        calendar instead syncs that child's assignments/tests/quizzes into it
+        (and skips the dedicated one). Only ever touches events it creates, so
+        the chosen calendar's own events are never modified.
+        """
+        target_fields = _calendar_target_fields(self._students)
+        if user_input is not None:
+            for sid, field_key in target_fields:
+                value = user_input.get(field_key)
+                if value:
+                    self._calendar_targets[sid] = value
+            return self._create_entry()
+
+        schema_dict: dict[Any, Any] = {}
+        for _sid, field_key in target_fields:
+            schema_dict[vol.Optional(field_key)] = EntitySelector(
+                EntitySelectorConfig(domain="calendar")
+            )
+        return self.async_show_form(
+            step_id="calendars", data_schema=vol.Schema(schema_dict)
+        )
+
     @callback
     def _create_entry(self) -> ConfigFlowResult:
-        """Persist the collected config into a new entry."""
+        """Persist the collected config into a new entry.
+
+        Any per-child calendar targets chosen at setup are stored as options
+        (with auto-sync enabled), so the existing options/coordinator/service
+        machinery picks them up unchanged.
+        """
+        options: dict[str, Any] = {}
+        if self._calendar_targets:
+            options[CONF_CALENDAR_TARGETS] = self._calendar_targets
+            options[CONF_CALENDAR_AUTOSYNC] = True
         return self.async_create_entry(
             title="Sycamore",
             data={
@@ -222,6 +261,7 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_SCHOOL_ID: self._school_id,
                 CONF_STUDENTS: self._students,
             },
+            options=options,
         )
 
     async def async_step_reauth(

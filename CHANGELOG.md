@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-08-11
+
+### Added
+
+- **Per-child calendar choice at setup.** Adding students now has a **Calendars**
+  step: for each child, leave it blank to keep a dedicated Sycamore calendar (the
+  default), or pick an **existing** calendar to sync their assignments, tests, and
+  quizzes into instead. Choosing a calendar skips the dedicated one for that child
+  and turns on auto-sync. The sync only ever adds and manages **its own** items
+  (tagged with a hidden `[sycamore-sync:…]` marker) — your other events on that
+  calendar are never modified or deleted, and the calendar itself is never removed.
+  Everything stays editable later under the integration's options.
+
+### Fixed
+
+- **Redundant school entity names.** The school device is named "School", so the
+  events calendar read "School **School events**" and the sensor "School **Next
+  school event**". They're now **"School Events"** and **"School Next event"**.
+  Friendly-name only — entity ids (and any names you've customized) are unchanged.
+
 ## [0.1.7] - 2026-08-11
 
 ### Fixed
@@ -155,6 +175,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.8]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.8
 [0.1.7]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.7
 [0.1.6]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.6
 [0.1.5]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.5

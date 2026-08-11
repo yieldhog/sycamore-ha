@@ -51,9 +51,45 @@ async def test_discovery_flow(hass: HomeAssistant):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"students": ["111"]}
         )
+        # New per-child calendar step; leaving it blank keeps dedicated calendars.
+        assert result["step_id"] == "calendars"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
         assert result["type"] == FlowResultType.CREATE_ENTRY
         assert result["data"]["students"] == [{"id": "111", "name": "Jane"}]
         assert result["data"]["school_id"] == "1002"
+        # Nothing chosen -> no sync options (each child gets its own calendar).
+        assert result["options"] == {}
+
+
+async def test_discovery_flow_with_calendar_target(hass: HomeAssistant):
+    """Choosing an existing calendar for a child stores it as a sync target."""
+    with patch(
+        "custom_components.sycamore.config_flow.SycamoreClient"
+    ) as mock_cls, patch(
+        "custom_components.sycamore.async_setup_entry", return_value=True
+    ):
+        mock_cls.return_value.async_get_family_students = AsyncMock(
+            return_value=[
+                {"ID": "111", "FirstName": "Jane", "LastName": "Doe", "Grade": "5th"},
+            ]
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok", "family_id": "647150"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"students": ["111"]}
+        )
+        assert result["step_id"] == "calendars"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"Jane": "calendar.family"}
+        )
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        # Target stored under the student id, auto-sync enabled.
+        assert result["options"]["calendar_targets"] == {"111": "calendar.family"}
+        assert result["options"]["calendar_autosync"] is True
 
 
 async def test_manual_flow(hass: HomeAssistant):
@@ -73,6 +109,8 @@ async def test_manual_flow(hass: HomeAssistant):
             result["flow_id"],
             {"id": "999", "name": "Alex", "add_another": False},
         )
+        assert result["step_id"] == "calendars"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
         assert result["type"] == FlowResultType.CREATE_ENTRY
         assert result["data"]["students"] == [{"id": "999", "name": "Alex"}]
 
@@ -194,6 +232,8 @@ async def test_manual_add_another(hass: HomeAssistant):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"id": "2", "name": "Bob", "add_another": False}
         )
+        assert result["step_id"] == "calendars"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"]["students"] == [
         {"id": "1", "name": "Ann"},
