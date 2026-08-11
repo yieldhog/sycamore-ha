@@ -28,6 +28,10 @@
           "add_another": "Add another student"
         }
       },
+      "calendars": {
+        "title": "Calendars",
+        "description": "For each child, leave blank to create a dedicated Sycamore calendar, or pick an existing calendar to sync their assignments, tests, and quizzes into instead. Syncing only adds and manages its own items — your other events on that calendar are never touched."
+      },
       "reauth_confirm": {
         "title": "Re-authenticate Sycamore",
         "description": "Your Sycamore token was rejected. Enter a new access token.",
@@ -86,7 +90,7 @@
       "discipline": { "name": "Discipline events" },
       "grade_level": { "name": "Grade level" },
       "homeroom_teacher": { "name": "Homeroom teacher" },
-      "next_school_event": { "name": "Next school event" },
+      "next_school_event": { "name": "Next event" },
       "todays_lunch": { "name": "Today's lunch" },
       "last_updated": { "name": "Last updated" }
     },
@@ -98,7 +102,7 @@
     "calendar": {
       "homework": { "name": "Homework" },
       "lunch": { "name": "Lunch" },
-      "school_events": { "name": "School events" }
+      "school_events": { "name": "Events" }
     },
     "todo": {
       "missing_work": { "name": "Missing work" }

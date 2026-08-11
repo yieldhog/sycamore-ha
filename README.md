@@ -202,15 +202,25 @@ never creates calendars; the writable `calendar.*` entities come from *your* Goo
 
 ### Per-child mapping (recommended)
 
-In the integration's **Configure → Options**, each child gets a **calendar picker**
-(labelled by name). Point a child at a calendar to sync them; **leave it blank to not
-sync** that child. Then either:
+You choose this per child in **two** places:
 
-- turn on **"Auto-sync calendars after each refresh"** and it stays updated
+- **At setup** — the **Calendars** step (right after you pick your kids) shows a
+  calendar picker per child. Leave it blank to create a **dedicated** Sycamore
+  calendar for that child (the default), or pick an **existing** calendar to sync
+  their work into instead. Choosing one skips the dedicated calendar for that
+  child and turns on auto-sync.
+- **Anytime after** — the same per-child picker lives in **Configure → Options**.
+
+Point a child at a calendar to sync them; **leave it blank** to keep their own
+dedicated calendar. With a calendar chosen you can either:
+
+- keep **"Auto-sync calendars after each refresh"** on and it stays updated
   automatically after every poll — no automation needed; or
-- leave auto-sync off and call the service yourself (below) when you want.
+- turn auto-sync off and call the service yourself (below) when you want.
 
-Different kids can go to different calendars, or several can share one.
+Different kids can go to different calendars, or several can share one. Syncing
+only ever manages events it created (tagged `[sycamore-sync:…]`), so your own
+events on the target calendar are never touched.
 
 ### The `sycamore.sync_calendar` service (manual / power use)
 

@@ -20,6 +20,7 @@ from .api import (
     SycamoreConnectionError,
 )
 from .const import (
+    CONF_CALENDAR_TARGETS,
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
@@ -135,6 +136,17 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def events_enabled(self) -> bool:
         """Whether the school events calendar is enabled."""
         return self._events_enabled
+
+    @property
+    def calendar_targets(self) -> dict[str, str]:
+        """Map of student_id -> writable calendar entity to sync into.
+
+        A student with a target here syncs into an existing calendar instead of
+        getting a dedicated read-only Sycamore calendar entity (set at setup or
+        in options). Read live from options so an options change takes effect on
+        reload.
+        """
+        return self.entry.options.get(CONF_CALENDAR_TARGETS, {})
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every student concurrently and reshape into entity-ready data."""
