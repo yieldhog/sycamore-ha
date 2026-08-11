@@ -320,6 +320,39 @@ async def test_missing_without_title_still_counts(hass: HomeAssistant):
     assert missing.attributes["assignments"] == ["Lab writeup"]
 
 
+class HomeworkErrorClient(FakeClient):
+    """Homework 500s (as Sycamore does between terms / during an API hiccup)."""
+
+    async def async_get_homework(self, student_id):
+        from custom_components.sycamore.api import SycamoreApiError
+
+        raise SycamoreApiError(
+            f"Student/{student_id}/Homework returned HTTP 500", status_code=500
+        )
+
+
+async def test_endpoint_500_degrades_not_fails(hass: HomeAssistant):
+    """A 500 on one section degrades that section, not the whole setup.
+
+    Reproduces the real-world "Failed setup, will retry: Student/…/Homework
+    returned HTTP 500": the integration must still load, with the other
+    sections intact and only the failed section empty.
+    """
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", HomeworkErrorClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    # Grades and missing work still load; only homework-derived data is empty.
+    assert hass.states.get("sensor.jane_mathematics") is not None
+    assert hass.states.get("sensor.jane_missing_work").state == "1"
+    assert hass.states.get("sensor.jane_upcoming_work").state == "0"
+    # A single-section 500 is not a failed refresh, so health stays OK.
+    assert hass.states.get("binary_sensor.sycamore_status").state == "off"
+
+
 class NoAttendanceClient(FakeClient):
     """Fails if attendance is fetched, proving the toggle skips the call."""
 

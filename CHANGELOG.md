@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-08-11
+
+### Fixed
+
+- **A single failing endpoint no longer breaks setup.** When Sycamore returned
+  an HTTP error for just one section (e.g. `Student/{id}/Homework` returning
+  **HTTP 500** between terms or during an API-side hiccup), the whole
+  integration failed to load (*"Failed setup, will retry"*). Each per-student
+  section (grades, homework, missing, attendance, discipline) is now fetched
+  independently: a **reachable-but-errored** response degrades that one section
+  to empty (and logs a warning) while the rest load normally. A genuine
+  **connectivity** failure still fails the refresh so it retries, and auth
+  errors still trigger reauth — so an outage isn't silently masked as "no data."
+
 ## [0.1.6] - 2026-08-11
 
 ### Changed
@@ -132,6 +146,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.7]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.7
 [0.1.6]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.6
 [0.1.5]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.5
 [0.1.4]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.4
