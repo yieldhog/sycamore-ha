@@ -5,7 +5,9 @@
 # Sycamore School — Home Assistant integration
 
 [![hacs][hacs-badge]][hacs]
+[![Release][release-badge]][release]
 [![Validate][validate-badge]][validate]
+![HA Version](https://img.shields.io/badge/Home%20Assistant-%3E%3D%202024.12-brightgreen)
 
 A native Home Assistant integration for the [Sycamore School][sycamore] platform.
 It pulls your children's **grades, homework, tests, missing work, attendance**, and the
@@ -249,5 +251,7 @@ See [`ROADMAP.md`](ROADMAP.md) for the full, prioritized list.
 [dash]: https://github.com/yieldhog/sycamore-dash
 [hacs]: https://hacs.xyz
 [hacs-badge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg
+[release]: https://github.com/yieldhog/sycamore-ha/releases
+[release-badge]: https://img.shields.io/github/release/yieldhog/sycamore-ha.svg
 [validate]: https://github.com/yieldhog/sycamore-ha/actions/workflows/validate.yml
 [validate-badge]: https://github.com/yieldhog/sycamore-ha/actions/workflows/validate.yml/badge.svg
