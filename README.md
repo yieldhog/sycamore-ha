@@ -42,9 +42,23 @@ Requires Home Assistant **2024.12** or newer.
 
 ### HACS (recommended)
 
+**Sycamore School** is in the default HACS store:
+
+1. Open **HACS** in Home Assistant.
+2. Search for **Sycamore School** and click **Download**.
+3. Restart Home Assistant.
+
+<details>
+<summary>Not showing up yet? Add it as a custom repository</summary>
+
+If the default-store listing hasn't reached your instance yet, you can add the
+repo directly:
+
 1. In HACS, open the three-dot menu → **Custom repositories**.
 2. Add `https://github.com/yieldhog/sycamore-ha` with category **Integration**.
 3. Install **Sycamore School**, then restart Home Assistant.
+
+</details>
 
 ### Manual
 
