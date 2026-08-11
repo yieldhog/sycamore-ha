@@ -13,7 +13,12 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import SycamoreAuthError, SycamoreClient, SycamoreConnectionError
+from .api import (
+    SycamoreApiError,
+    SycamoreAuthError,
+    SycamoreClient,
+    SycamoreConnectionError,
+)
 from .const import (
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
@@ -172,9 +177,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fetch one student's endpoints and shape the payload."""
         sid = student[CONF_STUDENT_ID]
         calls = [
-            self.client.async_get_grades(sid),
-            self.client.async_get_homework(sid),
-            self.client.async_get_missing(sid),
+            self._safe_section(self.client.async_get_grades(sid), sid, "grades"),
+            self._safe_section(self.client.async_get_homework(sid), sid, "homework"),
+            self._safe_section(self.client.async_get_missing(sid), sid, "missing"),
             self._safe_details(sid),
         ]
         # Optional endpoints are appended only when enabled; track each one's
@@ -182,10 +187,18 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         indices: dict[str, int] = {}
         if self._attendance_enabled:
             indices["attendance"] = len(calls)
-            calls.append(self.client.async_get_attendance(sid))
+            calls.append(
+                self._safe_section(
+                    self.client.async_get_attendance(sid), sid, "attendance"
+                )
+            )
         if self._discipline_enabled:
             indices["discipline"] = len(calls)
-            calls.append(self.client.async_get_discipline(sid))
+            calls.append(
+                self._safe_section(
+                    self.client.async_get_discipline(sid), sid, "discipline"
+                )
+            )
         results = await asyncio.gather(*calls)
         grades_raw, homework_raw, missing_raw, details_raw = results[:4]
         attendance_raw = (
@@ -205,6 +218,34 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             DATA_DETAILS: self._shape_details(details_raw),
         }
         return sid, data
+
+    async def _safe_section(
+        self, coro: Any, sid: str, section: str
+    ) -> list[dict[str, Any]]:
+        """Fetch one per-student section, tolerating a server-side endpoint error.
+
+        Sycamore intermittently returns an error for a *single* section (e.g. a
+        500 on ``Homework`` between terms, or during an API-wide hiccup) while
+        the account and the other sections are fine. Treat such a
+        reachable-but-errored response (``SycamoreApiError`` — a bad HTTP
+        status) as "no rows for now" so one bad endpoint can't fail the whole
+        setup/refresh. Auth errors still propagate (so reauth can trigger), and
+        a genuine transport failure (Sycamore unreachable) still propagates so
+        the coordinator retries instead of masking an outage as empty data.
+        """
+        try:
+            return await coro
+        except SycamoreAuthError:
+            raise
+        except SycamoreApiError as err:
+            _LOGGER.warning(
+                "Sycamore %s for student %s returned an error (%s); "
+                "using no data for it this refresh",
+                section,
+                sid,
+                err,
+            )
+            return []
 
     async def _safe_details(self, sid: str) -> dict[str, Any]:
         """Fetch student details, tolerating a missing/blocked endpoint.
