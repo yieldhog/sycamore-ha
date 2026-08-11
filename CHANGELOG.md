@@ -13,10 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   500s a single endpoint — most often under the burst of concurrent requests one
   refresh makes (grades + homework + missing + details at once) — which caused
   *"Failed setup, will retry: Student/{id}/Homework returned HTTP 500"* (and the
-  same on Grades). Two layers now handle this:
-  - **Retry with backoff.** A retryable server-side status (429/500/502/503/504)
-    is retried a few times with a short exponential backoff before giving up, so
-    a momentary blip resolves itself and the data actually loads.
+  same on Grades). Three layers now handle this:
+  - **Concurrency cap (root-cause fix).** A refresh no longer fires every
+    endpoint for every student at once — in-flight requests per account are
+    capped (currently 2), so the burst that triggers Sycamore's 500s never
+    happens. Refreshes are hourly, so the small serialization cost is invisible.
+  - **Retry with backoff.** Any retryable server-side status
+    (429/500/502/503/504) that still slips through is retried a few times with a
+    short exponential backoff, so a momentary blip resolves itself and the data
+    actually loads.
   - **Graceful degradation.** If a section *still* errors after retries, only
     that section degrades to empty (with a logged warning) instead of failing the
     whole integration. A genuine connectivity failure still fails the refresh so

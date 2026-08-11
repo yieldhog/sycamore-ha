@@ -8,6 +8,7 @@ a plain SycamoreConnectionError.
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock
 
 import httpx
@@ -117,6 +118,37 @@ async def test_404_is_not_retried(hass, monkeypatch):
     with pytest.raises(SycamoreApiError):
         await client.async_get_family_students("123")
     assert client._client.get.call_count == 1  # not retried
+
+
+async def test_requests_are_concurrency_limited(hass):
+    """No more than _MAX_CONCURRENCY requests are ever in flight at once.
+
+    This is the root-cause fix for the transient 500s: Sycamore drops requests
+    when a refresh fans out to every endpoint at once, so we cap in-flight
+    requests per account.
+    """
+    import custom_components.sycamore.api as api_mod
+
+    client = SycamoreClient(hass, "tok")
+    in_flight = 0
+    peak = 0
+
+    async def tracking_get(*args, **kwargs):
+        nonlocal in_flight, peak
+        in_flight += 1
+        peak = max(peak, in_flight)
+        await asyncio.sleep(0)  # yield so siblings can pile up if unbounded
+        in_flight -= 1
+        return httpx.Response(200, json=[])
+
+    client._client = AsyncMock()
+    client._client.get = tracking_get
+
+    # Fire far more requests than the cap, all at once.
+    await asyncio.gather(*(client.async_get_grades(str(i)) for i in range(12)))
+
+    assert peak >= 1
+    assert peak <= api_mod._MAX_CONCURRENCY
 
 
 async def test_discipline_hits_correct_endpoint(hass):
