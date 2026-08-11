@@ -74,7 +74,7 @@ class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         """The next upcoming assignment."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         upcoming = sorted(
             (e for e in self._events() if e.end > today), key=lambda e: e.start
         )
@@ -123,7 +123,7 @@ class SycamoreLunchCalendar(SycamoreSchoolEntity, CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         """The next lunch day."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         upcoming = sorted(
             (e for e in self._events() if e.end > today), key=lambda e: e.start
         )

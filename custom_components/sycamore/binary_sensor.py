@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -12,6 +11,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import SycamoreConfigEntry
 from .const import DATA_HOMEWORK, DATA_MISSING
@@ -68,7 +68,7 @@ class SycamoreTestSoonBinarySensor(SycamoreStudentEntity, BinarySensorEntity):
         )
 
     def _tests_soon(self) -> list[dict[str, Any]]:
-        today = datetime.now().date()
+        today = dt_util.now().date()
         out = []
         for hw in self.student_data.get(DATA_HOMEWORK, []):
             if hw["is_test"] and 0 <= (hw["due"] - today).days <= 1:

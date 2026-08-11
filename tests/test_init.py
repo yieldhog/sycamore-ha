@@ -208,6 +208,44 @@ async def test_student_details_enrich_device_and_sensors(hass: HomeAssistant):
     assert device.model == "7th Grade"
 
 
+class LateDetailsClient(FakeClient):
+    """Profile endpoint returns nothing at first, then data on a later refresh."""
+
+    details_ready = False
+
+    async def async_get_student_details(self, student_id):
+        if not LateDetailsClient.details_ready:
+            return {}
+        return {"Grade": "7th", "HomeroomTeacher": "Doug Hager"}
+
+
+async def test_detail_sensors_appear_on_later_refresh(hass: HomeAssistant):
+    """Detail sensors are added when the profile endpoint first returns data.
+
+    Regression: previously they were created only if details were present on the
+    very first refresh, so a transient failure (e.g. a 500) permanently hid them
+    until a reload. They should now appear on whichever refresh first succeeds.
+    """
+    LateDetailsClient.details_ready = False
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", LateDetailsClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        # Profile empty at setup -> detail sensors not created yet.
+        assert hass.states.get("sensor.jane_grade_level") is None
+        assert hass.states.get("sensor.jane_homeroom_teacher") is None
+
+        # Profile becomes available on a later refresh -> sensors appear.
+        LateDetailsClient.details_ready = True
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.jane_grade_level").state == "7th"
+    assert hass.states.get("sensor.jane_homeroom_teacher").state == "Doug Hager"
+
+
 async def test_school_events_calendar_and_sensor(hass: HomeAssistant):
     """With a School ID, the events endpoint drives a calendar + next-event sensor."""
     entry = MockConfigEntry(

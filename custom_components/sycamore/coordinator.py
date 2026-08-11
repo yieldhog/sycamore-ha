@@ -150,7 +150,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every student concurrently and reshape into entity-ready data."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         try:
             results = await asyncio.gather(
                 *(self._fetch_student(s, today) for s in self._students)
