@@ -30,6 +30,14 @@ _RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF = 0.5  # seconds; doubled each retry (0.5s, 1.0s)
 
+# Root cause of the transient 500s above: a single refresh fans out to every
+# endpoint for every student at once, and Sycamore's API drops requests under
+# that burst. Cap how many requests are in flight at any moment (across all
+# students and endpoints) so we never trigger it in the first place. Refreshes
+# are hourly, so the small serialization cost is invisible; the retry above is
+# just the backstop for the occasional blip that slips through.
+_MAX_CONCURRENCY = 2
+
 
 class SycamoreError(Exception):
     """Base error for the Sycamore client."""
@@ -67,6 +75,9 @@ class SycamoreClient:
         """Store the shared httpx client and the account token."""
         self._client = get_async_client(hass)
         self._token = token
+        # Bounds concurrent in-flight requests for this account (see
+        # _MAX_CONCURRENCY) so a refresh doesn't hammer Sycamore all at once.
+        self._semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -81,14 +92,17 @@ class SycamoreClient:
         """
         url = f"{API_BASE}/{path.lstrip('/')}"
         for attempt in range(_MAX_ATTEMPTS):
-            try:
-                resp = await self._client.get(
-                    url, headers=self._headers, timeout=_TIMEOUT
-                )
-            except httpx.HTTPError as err:
-                raise SycamoreConnectionError(
-                    f"Request to {path} failed: {err}"
-                ) from err
+            # Hold the concurrency slot only for the network call, not the
+            # backoff sleep below, so a retrying request doesn't idle a slot.
+            async with self._semaphore:
+                try:
+                    resp = await self._client.get(
+                        url, headers=self._headers, timeout=_TIMEOUT
+                    )
+                except httpx.HTTPError as err:
+                    raise SycamoreConnectionError(
+                        f"Request to {path} failed: {err}"
+                    ) from err
 
             if resp.status_code in (401, 403):
                 raise SycamoreAuthError(

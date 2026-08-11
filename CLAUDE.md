@@ -64,6 +64,13 @@ attendance}}, "cafeteria": [...] | None}`.
   Grades` (needs the class list first; response is keyed by class-type unless
   `format=1`, and `quarter=0` returns all terms). `Statistics` exists but likely
   needs a higher token scope. Official docs: github.com/SycamoreEducation/SycamoreSchoolAPI.
+- **Reliability:** the API intermittently `500`s a single endpoint under a burst
+  of concurrent requests on one token (observed flipping `500` → `204`). The
+  client (`api.py`) defends in three layers: a per-account concurrency cap
+  (`_MAX_CONCURRENCY`, a `Semaphore` around each GET), retry-with-backoff on
+  `429/500/502/503/504` (`_MAX_ATTEMPTS`), and per-section graceful degradation
+  in the coordinator (`_safe_section`). `204`/empty is `[]`; `401/403` → auth;
+  `404`/other → `SycamoreApiError` (not retried).
 
 ## Dev & testing
 
