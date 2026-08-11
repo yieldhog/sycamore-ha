@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-08-11
+
+### Changed
+
+- **README renders correctly on the HACS info page.** The brand image used a
+  relative path (`assets/brand/logo.png`), which HACS resolved against the Home
+  Assistant host (e.g. `https://<your-ha>/hacs/…`) and 404'd; it now uses an
+  absolute `raw.githubusercontent.com` URL so it loads wherever the README is
+  shown. Install steps lead with the HACS **default store** (custom-repository
+  steps kept as a collapsible fallback), the HACS badge reads **Default**, and
+  **Release** / **minimum-HA-version** badges were added.
+
+  *Docs-only — no functional change. Cut as a release because HACS renders the
+  README from the latest published release, not the default branch, so the image
+  fix only reaches users once it ships in a release.*
+
 ## [0.1.5] - 2026-08-01
 
 ### Fixed
@@ -116,6 +132,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.6]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.6
 [0.1.5]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.5
 [0.1.4]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.4
 [0.1.3]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.3
