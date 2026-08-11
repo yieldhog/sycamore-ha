@@ -68,6 +68,57 @@ async def test_empty_body_is_empty_list(hass):
     assert await client.async_get_family_students("123") == []
 
 
+async def test_transient_500_is_retried_then_succeeds(hass, monkeypatch):
+    """A transient 5xx is retried; a good response on a later attempt wins.
+
+    Mirrors the real Sycamore behaviour where a single endpoint 500s under the
+    concurrent-request burst but succeeds a moment later.
+    """
+    import custom_components.sycamore.api as api_mod
+
+    monkeypatch.setattr(api_mod, "_RETRY_BACKOFF", 0)  # no real delay in tests
+    client = SycamoreClient(hass, "tok")
+    client._client = AsyncMock()
+    client._client.get = AsyncMock(
+        side_effect=[
+            httpx.Response(500, text="boom"),
+            httpx.Response(200, json=[{"ClassName": "Science", "Number": "90"}]),
+        ]
+    )
+    result = await client.async_get_grades("123")
+    assert result == [{"ClassName": "Science", "Number": "90"}]
+    assert client._client.get.call_count == 2
+
+
+async def test_persistent_500_raises_after_retries(hass, monkeypatch):
+    """A 5xx on every attempt eventually raises an API error (not forever)."""
+    import custom_components.sycamore.api as api_mod
+
+    monkeypatch.setattr(api_mod, "_RETRY_BACKOFF", 0)
+    client = SycamoreClient(hass, "tok")
+    client._client = AsyncMock()
+    client._client.get = AsyncMock(return_value=httpx.Response(500, text="down"))
+    with pytest.raises(SycamoreApiError) as exc:
+        await client.async_get_grades("123")
+    assert exc.value.status_code == 500
+    assert client._client.get.call_count == 3  # _MAX_ATTEMPTS
+
+
+async def test_404_is_not_retried(hass, monkeypatch):
+    """A 404 (a real 'not found', not a transient blip) fails on the first try."""
+    import custom_components.sycamore.api as api_mod
+
+    monkeypatch.setattr(api_mod, "_RETRY_BACKOFF", 0)
+    client = SycamoreClient(hass, "tok")
+    client._client = AsyncMock()
+    client._client.get = AsyncMock(
+        return_value=httpx.Response(404, json={"message": "Endpoint Not Found"})
+    )
+    with pytest.raises(SycamoreApiError):
+        await client.async_get_family_students("123")
+    assert client._client.get.call_count == 1  # not retried
+
+
 async def test_discipline_hits_correct_endpoint(hass):
     """Discipline must call /Student/{id}/Discipline, not the old Discipline_Log.
 

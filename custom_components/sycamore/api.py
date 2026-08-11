@@ -7,6 +7,7 @@ Bearer-token auth model are per the official Sycamore API docs
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -19,6 +20,15 @@ from .const import API_BASE
 _LOGGER = logging.getLogger(__name__)
 
 _TIMEOUT = 15.0
+
+# Sycamore's API intermittently 500s a single endpoint — especially under the
+# burst of concurrent requests one refresh makes (grades + homework + missing +
+# details at once). These are transient: the same request retried a moment later
+# usually succeeds (we've watched an endpoint flip 500 -> 204). Retry a handful
+# of server-side statuses with a short exponential backoff before giving up.
+_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+_MAX_ATTEMPTS = 3
+_RETRY_BACKOFF = 0.5  # seconds; doubled each retry (0.5s, 1.0s)
 
 
 class SycamoreError(Exception):
@@ -70,39 +80,65 @@ class SycamoreClient:
         empty section never blanks out the others (ported from _json_list).
         """
         url = f"{API_BASE}/{path.lstrip('/')}"
-        try:
-            resp = await self._client.get(
-                url, headers=self._headers, timeout=_TIMEOUT
-            )
-        except httpx.HTTPError as err:
-            raise SycamoreConnectionError(f"Request to {path} failed: {err}") from err
+        for attempt in range(_MAX_ATTEMPTS):
+            try:
+                resp = await self._client.get(
+                    url, headers=self._headers, timeout=_TIMEOUT
+                )
+            except httpx.HTTPError as err:
+                raise SycamoreConnectionError(
+                    f"Request to {path} failed: {err}"
+                ) from err
 
-        if resp.status_code in (401, 403):
-            raise SycamoreAuthError(f"Token rejected for {path} ({resp.status_code})")
-        if resp.status_code == 204 or not resp.content:
-            return []
-        if resp.status_code >= 300:
-            _LOGGER.debug(
-                "Sycamore %s returned HTTP %s: %s",
-                path,
-                resp.status_code,
-                resp.text[:200],
-            )
-            raise SycamoreApiError(
-                f"{path} returned HTTP {resp.status_code}",
-                status_code=resp.status_code,
-            )
-        try:
-            return resp.json()
-        except ValueError as err:
-            _LOGGER.debug(
-                "Sycamore %s returned an unparseable body: %s",
-                path,
-                resp.text[:200],
-            )
-            raise SycamoreApiError(
-                f"Bad JSON from {path}: {err}", status_code=resp.status_code
-            ) from err
+            if resp.status_code in (401, 403):
+                raise SycamoreAuthError(
+                    f"Token rejected for {path} ({resp.status_code})"
+                )
+            if resp.status_code == 204 or not resp.content:
+                return []
+            # Retry transient server-side errors a few times before failing.
+            if (
+                resp.status_code in _RETRY_STATUSES
+                and attempt < _MAX_ATTEMPTS - 1
+            ):
+                delay = _RETRY_BACKOFF * (2**attempt)
+                _LOGGER.debug(
+                    "Sycamore %s returned HTTP %s; retrying in %.1fs (attempt %d/%d)",
+                    path,
+                    resp.status_code,
+                    delay,
+                    attempt + 1,
+                    _MAX_ATTEMPTS,
+                )
+                await asyncio.sleep(delay)
+                continue
+            if resp.status_code >= 300:
+                _LOGGER.debug(
+                    "Sycamore %s returned HTTP %s: %s",
+                    path,
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                raise SycamoreApiError(
+                    f"{path} returned HTTP {resp.status_code}",
+                    status_code=resp.status_code,
+                )
+            try:
+                return resp.json()
+            except ValueError as err:
+                _LOGGER.debug(
+                    "Sycamore %s returned an unparseable body: %s",
+                    path,
+                    resp.text[:200],
+                )
+                raise SycamoreApiError(
+                    f"Bad JSON from {path}: {err}", status_code=resp.status_code
+                ) from err
+        # Loop only falls through here if every attempt was a retryable status.
+        raise SycamoreApiError(
+            f"{path} returned HTTP {resp.status_code} after {_MAX_ATTEMPTS} attempts",
+            status_code=resp.status_code,
+        )
 
     @staticmethod
     def _as_list(data: Any) -> list[dict[str, Any]]:

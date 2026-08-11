@@ -9,15 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A single failing endpoint no longer breaks setup.** When Sycamore returned
-  an HTTP error for just one section (e.g. `Student/{id}/Homework` returning
-  **HTTP 500** between terms or during an API-side hiccup), the whole
-  integration failed to load (*"Failed setup, will retry"*). Each per-student
-  section (grades, homework, missing, attendance, discipline) is now fetched
-  independently: a **reachable-but-errored** response degrades that one section
-  to empty (and logs a warning) while the rest load normally. A genuine
-  **connectivity** failure still fails the refresh so it retries, and auth
-  errors still trigger reauth — so an outage isn't silently masked as "no data."
+- **Transient HTTP 500s no longer break setup.** Sycamore's API intermittently
+  500s a single endpoint — most often under the burst of concurrent requests one
+  refresh makes (grades + homework + missing + details at once) — which caused
+  *"Failed setup, will retry: Student/{id}/Homework returned HTTP 500"* (and the
+  same on Grades). Two layers now handle this:
+  - **Retry with backoff.** A retryable server-side status (429/500/502/503/504)
+    is retried a few times with a short exponential backoff before giving up, so
+    a momentary blip resolves itself and the data actually loads.
+  - **Graceful degradation.** If a section *still* errors after retries, only
+    that section degrades to empty (with a logged warning) instead of failing the
+    whole integration. A genuine connectivity failure still fails the refresh so
+    it retries, and auth errors still trigger reauth — so an outage isn't
+    silently masked as "no data."
 
 ## [0.1.6] - 2026-08-11
 
