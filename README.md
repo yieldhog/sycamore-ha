@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/brand/logo.png" alt="Sycamore School" width="320">
+  <img src="https://raw.githubusercontent.com/yieldhog/sycamore-ha/main/assets/brand/logo.png" alt="Sycamore School" width="320">
 </p>
 
 # Sycamore School — Home Assistant integration
@@ -234,6 +234,6 @@ See [`ROADMAP.md`](ROADMAP.md) for the full, prioritized list.
 [sycamore-api]: https://github.com/SycamoreEducation/SycamoreSchoolAPI
 [dash]: https://github.com/yieldhog/sycamore-dash
 [hacs]: https://hacs.xyz
-[hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs-badge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg
 [validate]: https://github.com/yieldhog/sycamore-ha/actions/workflows/validate.yml
 [validate-badge]: https://github.com/yieldhog/sycamore-ha/actions/workflows/validate.yml/badge.svg
