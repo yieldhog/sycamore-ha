@@ -36,6 +36,14 @@
         "title": "Re-authenticate Sycamore",
         "description": "Your Sycamore token was rejected. Enter a new access token.",
         "data": { "token": "Access token" }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Sycamore",
+        "description": "Update your access token or School ID. Leave the token blank to keep the current one.",
+        "data": {
+          "token": "Access token (leave blank to keep current)",
+          "school_id": "School ID (optional, enables lunch menu + school events)"
+        }
       }
     },
     "error": {
@@ -46,7 +54,8 @@
     },
     "abort": {
       "already_configured": "This Sycamore account is already configured.",
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Reconfiguration was successful."
     }
   },
   "options": {

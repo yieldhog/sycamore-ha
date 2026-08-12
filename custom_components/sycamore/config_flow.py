@@ -189,18 +189,34 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
         """Add students by hand (fallback when no family id is given)."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._students.append(
-                {
-                    CONF_STUDENT_ID: user_input[CONF_STUDENT_ID].strip(),
-                    CONF_STUDENT_NAME: user_input[CONF_STUDENT_NAME].strip(),
-                }
-            )
-            if user_input.get("add_another"):
-                return await self.async_step_manual()
-            if not self.unique_id:
-                await self.async_set_unique_id(f"token-{self._token[:12]}")
-                self._abort_if_unique_id_configured()
-            return await self.async_step_calendars()
+            sid = user_input[CONF_STUDENT_ID].strip()
+            # test-before-configure: confirm the token actually works before
+            # accepting it. A per-path API error (e.g. a mistyped student id ->
+            # 404) still means the token itself is valid, so only auth/transport
+            # failures block; a reachable-but-errored response passes.
+            client = SycamoreClient(self.hass, self._token)
+            try:
+                await client.async_get_student_details(sid)
+            except SycamoreAuthError:
+                errors["base"] = "invalid_auth"
+            except SycamoreApiError:
+                pass
+            except SycamoreConnectionError:
+                errors["base"] = "cannot_connect"
+
+            if not errors:
+                self._students.append(
+                    {
+                        CONF_STUDENT_ID: sid,
+                        CONF_STUDENT_NAME: user_input[CONF_STUDENT_NAME].strip(),
+                    }
+                )
+                if user_input.get("add_another"):
+                    return await self.async_step_manual()
+                if not self.unique_id:
+                    await self.async_set_unique_id(f"token-{self._token[:12]}")
+                    self._abort_if_unique_id_configured()
+                return await self.async_step_calendars()
 
         schema = vol.Schema(
             {
@@ -295,6 +311,50 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
             errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Update the token and/or School ID without removing the integration."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            # Blank token = keep the current one (avoids echoing it in the form).
+            token = (user_input.get(CONF_TOKEN) or "").strip() or entry.data[CONF_TOKEN]
+            school_id = (user_input.get(CONF_SCHOOL_ID) or "").strip() or None
+            client = SycamoreClient(self.hass, token)
+            family_id = entry.data.get(CONF_FAMILY_ID)
+            students = entry.data.get(CONF_STUDENTS, [])
+            try:
+                if family_id:
+                    await client.async_get_family_students(family_id)
+                elif students:
+                    await client.async_get_student_details(students[0][CONF_STUDENT_ID])
+            except SycamoreAuthError:
+                errors["base"] = "invalid_auth"
+            except SycamoreApiError:
+                pass  # token reached Sycamore -> valid; a per-path error is fine
+            except SycamoreConnectionError:
+                errors["base"] = "cannot_connect"
+
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={CONF_TOKEN: token, CONF_SCHOOL_ID: school_id},
+                )
+
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_TOKEN): str,
+                vol.Optional(
+                    CONF_SCHOOL_ID,
+                    description={"suggested_value": entry.data.get(CONF_SCHOOL_ID)},
+                ): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=schema, errors=errors
         )
 
     @staticmethod

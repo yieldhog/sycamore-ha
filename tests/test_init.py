@@ -310,6 +310,26 @@ async def test_health_entities(hass: HomeAssistant):
     assert last_updated.state != "unavailable"
 
 
+async def test_remove_stale_device(hass: HomeAssistant):
+    """A live student device can't be deleted; a stale one can."""
+    from custom_components.sycamore import async_remove_config_entry_device
+
+    entry = await _setup(hass)  # one configured student, Jane (111)
+    dev_reg = dr.async_get(hass)
+
+    live = dev_reg.async_get_device(identifiers={(DOMAIN, f"{entry.entry_id}_111")})
+    assert live is not None
+    # A configured student's device is live -> not removable.
+    assert await async_remove_config_entry_device(hass, entry, live) is False
+
+    # A device for a student no longer in the config is stale -> removable.
+    stale = dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, f"{entry.entry_id}_999")},
+    )
+    assert await async_remove_config_entry_device(hass, entry, stale) is True
+
+
 async def test_unload(hass: HomeAssistant):
     entry = await _setup(hass)
     assert await hass.config_entries.async_unload(entry.entry_id)
