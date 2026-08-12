@@ -18,6 +18,9 @@ from .const import DATA_HOMEWORK, DATA_MISSING
 from .coordinator import SycamoreDataUpdateCoordinator
 from .entity import SycamoreServiceEntity, SycamoreStudentEntity
 
+# Read-only, coordinator-driven entities: no per-entity polling to serialize.
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,

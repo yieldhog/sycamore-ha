@@ -33,6 +33,9 @@ from .entity import (
     SycamoreStudentEntity,
 )
 
+# Read-only, coordinator-driven entities: no per-entity polling to serialize.
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,

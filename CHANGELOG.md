@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] - 2026-08-11
+
+### Added
+
+- **Reconfigure flow** — change your access token or School ID from the
+  integration's **⋮ → Reconfigure** without removing and re-adding it (leave the
+  token blank to keep the current one).
+
+### Changed
+
+- **Manual student entry validates the token** before finishing setup, so a bad
+  token is caught right away instead of failing on the first refresh.
+- **Stale student devices can be removed** — a device for a student that's no
+  longer configured can be deleted from the device page; devices in active use
+  can't.
+- Set `PARALLEL_UPDATES` on every platform (all coordinator-driven and
+  read-only). No behavior change — aligns with Home Assistant conventions.
+
+### Docs
+
+- Added `docs/quality-scale.md`, a running checklist tracking the integration
+  against Home Assistant's Integration Quality Scale.
+
 ## [0.1.9] - 2026-08-11
 
 ### Fixed
@@ -195,6 +218,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.10]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.10
 [0.1.9]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.9
 [0.1.8]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.8
 [0.1.7]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.7
