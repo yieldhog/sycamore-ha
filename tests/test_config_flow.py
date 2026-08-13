@@ -36,6 +36,8 @@ async def test_discovery_flow(hass: HomeAssistant):
                 {"ID": "222", "FirstName": "Sam", "LastName": "Doe", "Grade": "3rd Grade"},
             ]
         )
+        # School ID is validated with a cafeteria probe.
+        mock_cls.return_value.async_get_cafeteria = AsyncMock(return_value={})
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
@@ -290,6 +292,7 @@ async def test_reconfigure_success(hass: HomeAssistant):
         mock_cls.return_value.async_get_family_students = AsyncMock(
             return_value=[{"ID": "111"}]
         )
+        mock_cls.return_value.async_get_cafeteria = AsyncMock(return_value={})
         result = await entry.start_reconfigure_flow(hass)
         assert result["step_id"] == "reconfigure"
         result = await hass.config_entries.flow.async_configure(
@@ -507,6 +510,55 @@ async def test_reconfigure_cannot_connect(hass: HomeAssistant):
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "cannot_connect"}
     assert entry.data["token"] == "old"
+
+
+async def test_invalid_school_id(hass: HomeAssistant):
+    """A School ID whose endpoints error is rejected with invalid_school_id."""
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_cafeteria = AsyncMock(
+            side_effect=SycamoreApiError("not found", status_code=404)
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"token": "tok", "family_id": "647150", "school_id": "9999"},
+        )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_school_id"}
+
+
+async def test_school_id_auth_error(hass: HomeAssistant):
+    """An auth failure while probing the School ID surfaces invalid_auth."""
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_cafeteria = AsyncMock(
+            side_effect=SycamoreAuthError("nope")
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "bad", "school_id": "1002"}
+        )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_school_id_cannot_connect(hass: HomeAssistant):
+    """A transport failure while probing the School ID surfaces cannot_connect."""
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_cafeteria = AsyncMock(
+            side_effect=SycamoreConnectionError("down")
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok", "school_id": "1002"}
+        )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
 
 
 async def test_reauth_success(hass: HomeAssistant):

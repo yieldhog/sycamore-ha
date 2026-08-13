@@ -99,6 +99,10 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._prev_scores: dict[tuple[str, str], float] = {}
         # Timestamp of the last *successful* refresh, for the health sensors.
         self.last_success: datetime | None = None
+        # Sections that degraded to empty on the last refresh (server-side errors
+        # that were tolerated) — surfaced on the health Status sensor so a user
+        # can tell "endpoint erroring" from "no data yet".
+        self.degraded: list[dict[str, str]] = []
 
         super().__init__(
             hass,
@@ -151,6 +155,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every student concurrently and reshape into entity-ready data."""
         today = dt_util.now().date()
+        self.degraded = []
         try:
             results = await asyncio.gather(
                 *(self._fetch_student(s, today) for s in self._students)
@@ -169,8 +174,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                 except SycamoreAuthError:
                     raise
-                except SycamoreConnectionError:
+                except SycamoreConnectionError as err:
                     _LOGGER.debug("School events fetch failed; leaving unset")
+                    self.degraded.append(
+                        {"student": "School", "section": "events", "error": str(err)}
+                    )
         except SycamoreAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except SycamoreConnectionError as err:
@@ -188,11 +196,12 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> tuple[str, dict[str, Any]]:
         """Fetch one student's endpoints and shape the payload."""
         sid = student[CONF_STUDENT_ID]
+        name = student[CONF_STUDENT_NAME]
         calls = [
-            self._safe_section(self.client.async_get_grades(sid), sid, "grades"),
-            self._safe_section(self.client.async_get_homework(sid), sid, "homework"),
-            self._safe_section(self.client.async_get_missing(sid), sid, "missing"),
-            self._safe_details(sid),
+            self._safe_section(self.client.async_get_grades(sid), name, "grades"),
+            self._safe_section(self.client.async_get_homework(sid), name, "homework"),
+            self._safe_section(self.client.async_get_missing(sid), name, "missing"),
+            self._safe_details(sid, name),
         ]
         # Optional endpoints are appended only when enabled; track each one's
         # slot so results stay correctly matched regardless of which are on.
@@ -201,14 +210,14 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             indices["attendance"] = len(calls)
             calls.append(
                 self._safe_section(
-                    self.client.async_get_attendance(sid), sid, "attendance"
+                    self.client.async_get_attendance(sid), name, "attendance"
                 )
             )
         if self._discipline_enabled:
             indices["discipline"] = len(calls)
             calls.append(
                 self._safe_section(
-                    self.client.async_get_discipline(sid), sid, "discipline"
+                    self.client.async_get_discipline(sid), name, "discipline"
                 )
             )
         results = await asyncio.gather(*calls)
@@ -232,7 +241,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return sid, data
 
     async def _safe_section(
-        self, coro: Any, sid: str, section: str
+        self, coro: Any, label: str, section: str
     ) -> list[dict[str, Any]]:
         """Fetch one per-student section, tolerating a server-side endpoint error.
 
@@ -241,9 +250,10 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         the account and the other sections are fine. Treat such a
         reachable-but-errored response (``SycamoreApiError`` — a bad HTTP
         status) as "no rows for now" so one bad endpoint can't fail the whole
-        setup/refresh. Auth errors still propagate (so reauth can trigger), and
-        a genuine transport failure (Sycamore unreachable) still propagates so
-        the coordinator retries instead of masking an outage as empty data.
+        setup/refresh, and record it in ``degraded`` so the Status sensor can
+        show *which* section failed. Auth errors still propagate (so reauth can
+        trigger), and a genuine transport failure (Sycamore unreachable) still
+        propagates so the coordinator retries instead of masking an outage.
         """
         try:
             return await coro
@@ -251,15 +261,18 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise
         except SycamoreApiError as err:
             _LOGGER.warning(
-                "Sycamore %s for student %s returned an error (%s); "
+                "Sycamore %s for %s returned an error (%s); "
                 "using no data for it this refresh",
                 section,
-                sid,
+                label,
                 err,
+            )
+            self.degraded.append(
+                {"student": label, "section": section, "error": str(err)}
             )
             return []
 
-    async def _safe_details(self, sid: str) -> dict[str, Any]:
+    async def _safe_details(self, sid: str, label: str) -> dict[str, Any]:
         """Fetch student details, tolerating a missing/blocked endpoint.
 
         Details only enrich the device (grade, homeroom), so a failure here
@@ -270,8 +283,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return await self.client.async_get_student_details(sid)
         except SycamoreAuthError:
             raise
-        except SycamoreConnectionError:
-            _LOGGER.debug("Student details fetch failed for %s", sid)
+        except SycamoreConnectionError as err:
+            _LOGGER.debug("Student details fetch failed for %s", label)
+            self.degraded.append(
+                {"student": label, "section": "details", "error": str(err)}
+            )
             return {}
 
     def _shape_grades(
