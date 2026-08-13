@@ -26,7 +26,7 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 | `has-entity-name` | ✅ | |
 | `entity-event-setup` | ✅ | coordinator + `async_on_unload` listeners |
 | `common-modules` | ✅ | `coordinator.py` / `entity.py` |
-| `action-setup` | 🟡 | services register from `async_setup_entry`; core prefers `async_setup` with entry validated inside |
+| `action-setup` | ✅ | `sync_calendar` registers in `async_setup`; the handler validates a usable entry at call time |
 | `dependency-transparency` | ❌ | needs the API client as a versioned PyPI library (`pysycamore`) |
 | `docs-*` (install / remove / actions / description) | ❌ | needs a page on home-assistant.io |
 | `brands` | 🟡 | shipped in-repo under `brand/`; core needs assets in `home-assistant/brands` |

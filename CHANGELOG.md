@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.12] - 2026-08-13
+
+### Changed
+
+- **The `sycamore.sync_calendar` action is registered at integration setup**
+  instead of per config entry, so it always exists — even when no entry is
+  loaded (e.g. a failed setup or a reload). Automations that call it no longer
+  break with "service not found"; if there's nothing to sync, the call raises a
+  clear error instead. No change to how the action behaves in normal use.
+
 ## [0.1.11] - 2026-08-12
 
 ### Changed
@@ -237,6 +247,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.12]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.12
 [0.1.11]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.11
 [0.1.10]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.10
 [0.1.9]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.9

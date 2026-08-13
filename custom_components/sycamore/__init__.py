@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.typing import ConfigType
 
 from .api import SycamoreClient
 from .const import CONF_CALENDAR_AUTOSYNC, CONF_TOKEN, DOMAIN
@@ -22,6 +23,16 @@ PLATFORMS: list[Platform] = [
 type SycamoreConfigEntry = ConfigEntry[SycamoreDataUpdateCoordinator]
 
 
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register integration-level services once.
+
+    Registered here (not in ``async_setup_entry``) so the service exists even
+    when no config entry is loaded; it validates a usable entry at call time.
+    """
+    await async_setup_services(hass)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: SycamoreConfigEntry) -> bool:
     """Set up Sycamore from a config entry."""
     client = SycamoreClient(hass, entry.data[CONF_TOKEN])
@@ -31,7 +42,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: SycamoreConfigEntry) -> 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
-    await async_setup_services(hass)
 
     # Opt-in: reconcile the per-student calendar mapping after every refresh.
     if entry.options.get(CONF_CALENDAR_AUTOSYNC):
