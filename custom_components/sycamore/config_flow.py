@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components.calendar import CalendarEntityFeature
 from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.const import ATTR_SUPPORTED_FEATURES
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
@@ -83,6 +85,35 @@ def _calendar_target_fields(
         key = name if counts[name] == 1 else f"{name} ({sid})"
         fields.append((sid, key))
     return fields
+
+
+def _writable_calendar_ids(hass: HomeAssistant) -> list[str]:
+    """Entity ids of calendars that can have events created (valid sync targets).
+
+    A sync target must support adding events; read-only calendars (including our
+    own Sycamore calendars) can't be written to, so they don't belong in the
+    picker.
+    """
+    writable: list[str] = []
+    for state in hass.states.async_all("calendar"):
+        features = state.attributes.get(ATTR_SUPPORTED_FEATURES) or 0
+        if features & CalendarEntityFeature.CREATE_EVENT:
+            writable.append(state.entity_id)
+    return writable
+
+
+def _calendar_selector(hass: HomeAssistant) -> EntitySelector:
+    """A calendar picker limited to writable calendars, when any are known.
+
+    Falls back to all calendars if none advertise create support (e.g. their
+    features aren't populated yet), so a valid target is never hidden by mistake.
+    """
+    writable = _writable_calendar_ids(hass)
+    if writable:
+        return EntitySelector(
+            EntitySelectorConfig(domain="calendar", include_entities=writable)
+        )
+    return EntitySelector(EntitySelectorConfig(domain="calendar"))
 
 
 class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -249,10 +280,9 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
             return self._create_entry()
 
         schema_dict: dict[Any, Any] = {}
+        selector = _calendar_selector(self.hass)
         for _sid, field_key in target_fields:
-            schema_dict[vol.Optional(field_key)] = EntitySelector(
-                EntitySelectorConfig(domain="calendar")
-            )
+            schema_dict[vol.Optional(field_key)] = selector
         return self.async_show_form(
             step_id="calendars", data_schema=vol.Schema(schema_dict)
         )
@@ -452,13 +482,14 @@ class SycamoreOptionsFlow(OptionsFlow):
             ),
         }
         # One optional calendar picker per student (blank = don't sync).
+        calendar_selector = _calendar_selector(self.hass)
         for sid, field_key in target_fields:
             schema_dict[
                 vol.Optional(
                     field_key,
                     description={"suggested_value": current_targets.get(sid)},
                 )
-            ] = EntitySelector(EntitySelectorConfig(domain="calendar"))
+            ] = calendar_selector
 
         return self.async_show_form(
             step_id="init", data_schema=vol.Schema(schema_dict)

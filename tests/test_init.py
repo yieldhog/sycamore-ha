@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sycamore.const import DOMAIN
@@ -28,7 +29,7 @@ class FakeClient:
         ]
 
     async def async_get_homework(self, student_id):
-        tomorrow = (date.today() + timedelta(days=1)).strftime("%m/%d/%Y")
+        tomorrow = (dt_util.now().date() + timedelta(days=1)).strftime("%m/%d/%Y")
         return [
             {"Title": "Chapter 3 Quiz", "ClassName": "6H Mathematics",
              "DueDate": tomorrow, "Description": "<p>Study</p>"},
@@ -330,6 +331,30 @@ async def test_remove_stale_device(hass: HomeAssistant):
     assert await async_remove_config_entry_device(hass, entry, stale) is True
 
 
+async def test_diagnostics_redacts_pii(hass: HomeAssistant):
+    """Diagnostics hide the token, student ids, and student/teacher names."""
+    from custom_components.sycamore.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    entry = await _setup(hass)  # Jane (id 111), homeroom "Doug Hager"
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+
+    # Credentials redacted.
+    assert diag["entry_data"]["token"] == "**REDACTED**"
+
+    # Students re-keyed so the raw student id isn't a dict key.
+    students = diag["data"]["students"]
+    assert "111" not in students
+    assert "student_0" in students
+
+    bundle = students["student_0"]
+    # Name + teacher redacted, but academic structure preserved for debugging.
+    assert bundle["name"] == "**REDACTED**"
+    assert bundle["details"]["homeroom_teacher"] == "**REDACTED**"
+    assert bundle["grades"]  # grade data still present
+
+
 async def test_unload(hass: HomeAssistant):
     entry = await _setup(hass)
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -341,7 +366,7 @@ class LunchClient(FakeClient):
     """Returns the real cafeteria shape: {MM/DD/YYYY: [meal objects]}."""
 
     async def async_get_cafeteria(self, school_id):
-        today = date.today().strftime("%m/%d/%Y")
+        today = dt_util.now().date().strftime("%m/%d/%Y")
         return {
             today: [
                 {

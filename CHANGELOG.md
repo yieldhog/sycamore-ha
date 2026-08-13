@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-08-12
+
+### Changed
+
+- **Calendar sync picker lists only writable calendars.** The per-child calendar
+  picker (at setup and in options) now offers only calendars that support adding
+  events, so you can't pick a read-only calendar as a sync target by mistake. If
+  none advertise write support, it falls back to showing all calendars.
+- **Diagnostics redact more.** The diagnostics download now also hides the
+  student's display name, the raw student IDs, and teacher/advisor names (on top
+  of the token). Academic data is kept but de-identified, so a shared diagnostics
+  file stays useful for debugging without naming anyone.
+
+### Internal
+
+- Made the test suite timezone-deterministic — fixtures build dates in Home
+  Assistant's timezone (matching the integration), fixing tests that could fail
+  near the UTC/local date boundary.
+
 ## [0.1.10] - 2026-08-11
 
 ### Added
@@ -218,6 +237,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.11]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.11
 [0.1.10]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.10
 [0.1.9]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.9
 [0.1.8]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.8
