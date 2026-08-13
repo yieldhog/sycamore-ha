@@ -37,10 +37,10 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 | --- | --- | --- |
 | `config-entry-unloading` | ✅ | |
 | `reauthentication-flow` | ✅ | |
-| `test-coverage` (>95%) | 🟡 | measure |
+| `test-coverage` (>95%) | ✅ | 96% overall, enforced in CI (`--cov-fail-under=95`) |
 | `entity-unavailable` | ✅ | |
 | `integration-owner` | ✅ | `@yieldhog` |
-| `action-exceptions` | 🟡 | `sync_calendar` raises `ServiceValidationError`; audit all failure modes |
+| `action-exceptions` | ✅ | `sync_calendar` raises translated `ServiceValidationError` for no-targets and for an explicit missing / read-only `target_calendar` |
 | `log-when-unavailable` | ✅ | coordinator logs once |
 | `parallel-updates` | ✅ | `PARALLEL_UPDATES = 0` on every platform (coordinator-driven, read-only) |
 | `stale-devices` | ✅ | `async_remove_config_entry_device` removes devices no longer configured |
@@ -73,9 +73,10 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 
 ## Where we stand
 
-Bronze and Silver are complete except the three core-only levers below; **Gold is
-complete except `docs-*`** (which needs a home-assistant.io page — a core concern,
-not a HACS one). Platinum needs the library extraction + strict typing.
+**Bronze, Silver, and Gold are complete** except three core-only items: `brands`
+and `dependency-transparency` (Bronze), and `docs-*` (a home-assistant.io page —
+a core concern, not a HACS one). Platinum needs the library extraction +
+strict typing.
 
 ## Biggest remaining levers
 

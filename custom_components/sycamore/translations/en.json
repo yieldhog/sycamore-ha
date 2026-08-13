@@ -145,6 +145,12 @@
   "exceptions": {
     "no_sync_targets": {
       "message": "No students to sync: pass target_calendar, or set a per-student calendar in the integration's options."
+    },
+    "calendar_not_found": {
+      "message": "Calendar {calendar} was not found. Pick a calendar that exists."
+    },
+    "calendar_not_writable": {
+      "message": "Calendar {calendar} can't have events added to it. Pick a writable calendar (for example a Google calendar)."
     }
   },
   "issues": {

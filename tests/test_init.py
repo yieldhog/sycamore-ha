@@ -420,6 +420,43 @@ async def test_lunch_sensor_and_calendar(hass: HomeAssistant):
     assert hass.states.get(cal_eid) is not None
 
 
+async def test_calendar_get_events(hass: HomeAssistant):
+    """Querying each calendar's events exercises its async_get_events."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "t",
+            "family_id": "1",
+            "school_id": "1002",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", LunchClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    start = dt_util.now() - timedelta(days=1)
+    end = dt_util.now() + timedelta(days=30)
+    for suffix in ("111_homework", "lunch_calendar", "school_events"):
+        eid = reg.async_get_entity_id("calendar", DOMAIN, f"{entry.entry_id}_{suffix}")
+        assert eid
+        res = await hass.services.async_call(
+            "calendar",
+            "get_events",
+            {
+                "entity_id": eid,
+                "start_date_time": start.isoformat(),
+                "end_date_time": end.isoformat(),
+            },
+            blocking=True,
+            return_response=True,
+        )
+        assert eid in res
+
+
 class TitlelessMissingClient(FakeClient):
     """Missing item with no Title — the reference app only used ClassName/Desc."""
 

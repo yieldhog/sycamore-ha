@@ -151,6 +151,38 @@ async def test_requests_are_concurrency_limited(hass):
     assert peak <= api_mod._MAX_CONCURRENCY
 
 
+async def test_endpoint_methods_shape_responses(hass):
+    """Each endpoint wrapper returns the right shape (list vs dict)."""
+    client = SycamoreClient(hass, "tok")
+    client._client = AsyncMock()
+
+    async def fake_get(url, **kwargs):
+        if url.endswith("/Student/1"):  # profile details -> dict
+            return httpx.Response(200, json={"Grade": "7th"})
+        if url.endswith("/Cafeteria"):  # cafeteria -> dict keyed by date
+            return httpx.Response(200, json={"08/13/2026": [{"MealName": "Pizza"}]})
+        return httpx.Response(200, json=[{"x": 1}])
+
+    client._client.get = fake_get
+
+    assert await client.async_get_grades("1") == [{"x": 1}]
+    assert await client.async_get_homework("1") == [{"x": 1}]
+    assert await client.async_get_missing("1") == [{"x": 1}]
+    assert await client.async_get_attendance("1") == [{"x": 1}]
+    assert await client.async_get_discipline("1") == [{"x": 1}]
+    assert await client.async_get_events("9") == [{"x": 1}]
+    assert await client.async_get_student_details("1") == {"Grade": "7th"}
+    assert await client.async_get_cafeteria("9") == {"08/13/2026": [{"MealName": "Pizza"}]}
+    # Non-dict bodies for the dict endpoints degrade to {}.
+    client._client.get = AsyncMock(return_value=httpx.Response(200, json=[1, 2]))
+    assert await client.async_get_student_details("1") == {}
+    assert await client.async_get_cafeteria("9") == {}
+    # async_validate hits the family list when given an id, and no-ops without.
+    client._client.get = AsyncMock(return_value=httpx.Response(200, json=[]))
+    await client.async_validate("123")
+    await client.async_validate(None)
+
+
 async def test_discipline_hits_correct_endpoint(hass):
     """Discipline must call /Student/{id}/Discipline, not the old Discipline_Log.
 

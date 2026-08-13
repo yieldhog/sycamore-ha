@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2026-08-13
+
+### Changed
+
+- **Clearer error for a bad calendar target.** Calling `sycamore.sync_calendar`
+  with a `target_calendar` that doesn't exist or can't have events added to it
+  now raises a clear error instead of silently doing nothing.
+
+### Internal
+
+- Raised overall test coverage to 96% and now enforce a ≥95% floor (plus 100%
+  on the config flow) in CI.
+
 ## [0.1.13] - 2026-08-13
 
 ### Added
@@ -270,6 +283,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.14]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.14
 [0.1.13]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.13
 [0.1.12]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.12
 [0.1.10]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.10
