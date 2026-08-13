@@ -296,8 +296,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
         if not assignments:
             raise ServiceValidationError(
-                "No students to sync: pass target_calendar, or set a per-student "
-                "calendar in the integration's options."
+                translation_domain=DOMAIN,
+                translation_key="no_sync_targets",
             )
         return await _reconcile(hass, assignments, days, prefix)
 

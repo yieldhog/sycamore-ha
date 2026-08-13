@@ -141,5 +141,16 @@
         }
       }
     }
+  },
+  "exceptions": {
+    "no_sync_targets": {
+      "message": "No students to sync: pass target_calendar, or set a per-student calendar in the integration's options."
+    }
+  },
+  "issues": {
+    "section_degraded": {
+      "title": "Sycamore can't read {section} for {student}",
+      "description": "The {section} data for {student} has failed to load for several refreshes (most recent error: {error}). That data may be missing or stale. If it keeps happening, check that your Sycamore access token still works, or (for lunch and school events) that your School ID is still correct. This notice clears automatically once the data loads again."
+    }
   }
 }

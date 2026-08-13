@@ -53,7 +53,6 @@ class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
     """A read-only calendar of a student's homework and tests."""
 
     _attr_translation_key = "homework"
-    _attr_icon = "mdi:calendar-text"
 
     def __init__(self, coordinator, student_id, student_name) -> None:  # noqa: D107
         super().__init__(coordinator, student_id, student_name)
@@ -96,7 +95,6 @@ class SycamoreLunchCalendar(SycamoreSchoolEntity, CalendarEntity):
     """A read-only calendar of the cafeteria menu — one all-day event per day."""
 
     _attr_translation_key = "lunch"
-    _attr_icon = "mdi:food"
 
     def __init__(self, coordinator) -> None:
         """Initialize the school lunch calendar."""
@@ -152,7 +150,6 @@ class SycamoreEventsCalendar(SycamoreSchoolEntity, CalendarEntity):
     """A read-only calendar of the school's events (all-day and timed)."""
 
     _attr_translation_key = "school_events"
-    _attr_icon = "mdi:calendar-star"
 
     def __init__(self, coordinator) -> None:
         """Initialize the school events calendar."""

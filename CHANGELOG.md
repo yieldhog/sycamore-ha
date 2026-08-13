@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.13] - 2026-08-13
+
+### Added
+
+- **Repairs card for a persistent failure.** If one endpoint keeps erroring for
+  several refreshes in a row (while everything else loads), a card now appears in
+  **Settings → Repairs** naming the section and the error — so a *sustained*
+  problem is actionable, not just a silently empty sensor. It clears
+  automatically once the data loads again, and a one-off transient error won't
+  raise it.
+
+### Changed
+
+- Entity icons are now defined via `icons.json` (Home Assistant's icon
+  translations) instead of inline in code. No visible change.
+- The `sycamore.sync_calendar` action error is now a translated exception.
+
 ## [0.1.12] - 2026-08-13
 
 ### Added
@@ -253,6 +270,7 @@ Initial beta: core integration (setup/discovery/reauth, per-class grades and tre
 homework calendar, missing-work to-do, binary sensors, attendance, and the optional
 lunch sensor/calendar).
 
+[0.1.13]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.13
 [0.1.12]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.12
 [0.1.10]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.10
 [0.1.9]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.9

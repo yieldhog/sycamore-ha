@@ -1,0 +1,30 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "test_within_24h": { "default": "mdi:clipboard-alert" }
+    },
+    "calendar": {
+      "homework": { "default": "mdi:calendar-text" },
+      "lunch": { "default": "mdi:food" },
+      "school_events": { "default": "mdi:calendar-star" }
+    },
+    "sensor": {
+      "missing_work": { "default": "mdi:alert-circle" },
+      "upcoming_work": { "default": "mdi:calendar-clock" },
+      "upcoming_tests": { "default": "mdi:clipboard-alert-outline" },
+      "grade_average": { "default": "mdi:school" },
+      "next_assignment": { "default": "mdi:calendar-arrow-right" },
+      "next_test": { "default": "mdi:clipboard-text-clock" },
+      "attendance": { "default": "mdi:clipboard-check" },
+      "discipline": { "default": "mdi:gavel" },
+      "grade_level": { "default": "mdi:school-outline" },
+      "homeroom_teacher": { "default": "mdi:human-male-board" },
+      "todays_lunch": { "default": "mdi:food-apple" },
+      "last_updated": { "default": "mdi:cloud-check-variant" },
+      "next_school_event": { "default": "mdi:calendar-star" }
+    },
+    "todo": {
+      "missing_work": { "default": "mdi:format-list-checks" }
+    }
+  }
+}

@@ -36,7 +36,6 @@ class SycamoreMissingTodoList(SycamoreStudentEntity, TodoListEntity):
     """
 
     _attr_translation_key = "missing_work"
-    _attr_icon = "mdi:format-list-checks"
 
     def __init__(self, coordinator, student_id, student_name) -> None:  # noqa: D107
         super().__init__(coordinator, student_id, student_name)
