@@ -212,7 +212,6 @@ class SycamoreMissingCountSensor(_StudentCountSensor):
     _data_key = DATA_MISSING
     _slug = "missing_work"
     _attr_translation_key = "missing_work"
-    _attr_icon = "mdi:alert-circle"
 
     @property
     def native_value(self) -> int:
@@ -229,7 +228,6 @@ class SycamoreUpcomingCountSensor(_StudentCountSensor):
 
     _slug = "upcoming_work"
     _attr_translation_key = "upcoming_work"
-    _attr_icon = "mdi:calendar-clock"
 
     @property
     def native_value(self) -> int:
@@ -266,7 +264,6 @@ class SycamoreUpcomingTestsSensor(_StudentCountSensor):
 
     _slug = "upcoming_tests"
     _attr_translation_key = "upcoming_tests"
-    _attr_icon = "mdi:clipboard-alert-outline"
 
     def _tests(self) -> list[dict[str, Any]]:
         return [
@@ -301,7 +298,6 @@ class SycamoreAverageSensor(SycamoreStudentEntity, SensorEntity):
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 1
-    _attr_icon = "mdi:school"
 
     def __init__(self, coordinator, student_id, student_name) -> None:
         """Initialize the average sensor."""
@@ -412,7 +408,6 @@ class SycamoreNextAssignmentSensor(_SycamoreNextBase):
 
     _slug = "next_assignment"
     _attr_translation_key = "next_assignment"
-    _attr_icon = "mdi:calendar-arrow-right"
 
 
 class SycamoreNextTestSensor(_SycamoreNextBase):
@@ -420,7 +415,6 @@ class SycamoreNextTestSensor(_SycamoreNextBase):
 
     _slug = "next_test"
     _attr_translation_key = "next_test"
-    _attr_icon = "mdi:clipboard-text-clock"
     _test_only = True
 
 
@@ -429,7 +423,6 @@ class SycamoreAttendanceSensor(_StudentCountSensor):
 
     _slug = "attendance"
     _attr_translation_key = "attendance"
-    _attr_icon = "mdi:clipboard-check"
 
     @property
     def native_value(self) -> int:
@@ -445,7 +438,6 @@ class SycamoreDisciplineSensor(_StudentCountSensor):
 
     _slug = "discipline"
     _attr_translation_key = "discipline"
-    _attr_icon = "mdi:gavel"
 
     @property
     def native_value(self) -> int:
@@ -480,7 +472,6 @@ class SycamoreGradeLevelSensor(_SycamoreDetailSensor):
     _detail_key = "grade"
     _slug = "grade_level"
     _attr_translation_key = "grade_level"
-    _attr_icon = "mdi:school-outline"
 
 
 class SycamoreHomeroomTeacherSensor(_SycamoreDetailSensor):
@@ -489,14 +480,12 @@ class SycamoreHomeroomTeacherSensor(_SycamoreDetailSensor):
     _detail_key = "homeroom_teacher"
     _slug = "homeroom_teacher"
     _attr_translation_key = "homeroom_teacher"
-    _attr_icon = "mdi:human-male-board"
 
 
 class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
     """Today's cafeteria menu (school-level)."""
 
     _attr_translation_key = "todays_lunch"
-    _attr_icon = "mdi:food-apple"
 
     def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
         """Initialize the lunch sensor."""
@@ -546,7 +535,6 @@ class SycamoreLastUpdatedSensor(SycamoreServiceEntity, SensorEntity):
     _attr_translation_key = "last_updated"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:cloud-check-variant"
 
     def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
         """Initialize the last-updated sensor."""
@@ -563,7 +551,6 @@ class SycamoreNextEventSensor(SycamoreSchoolEntity, SensorEntity):
 
     _attr_translation_key = "next_school_event"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
-    _attr_icon = "mdi:calendar-star"
 
     def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
         """Initialize the next-event sensor."""

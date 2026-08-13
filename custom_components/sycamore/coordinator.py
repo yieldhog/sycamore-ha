@@ -10,6 +10,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -61,6 +62,10 @@ from .helpers import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Consecutive refreshes a single section must fail before it raises a Repairs
+# issue (so a one-off transient error doesn't). It auto-clears on recovery.
+_DEGRADED_THRESHOLD = 3
+
 
 class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch and shape all configured students' data in one refresh."""
@@ -103,6 +108,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # that were tolerated) — surfaced on the health Status sensor so a user
         # can tell "endpoint erroring" from "no data yet".
         self.degraded: list[dict[str, str]] = []
+        # Consecutive-failure count per section, for the persistent-failure
+        # Repairs issue (keyed by "section|student").
+        self._degraded_streak: dict[str, int] = {}
 
         super().__init__(
             hass,
@@ -185,11 +193,48 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
 
         self.last_success = dt_util.now()
+        self._update_repair_issues()
         return {
             "students": {sid: data for sid, data in results},
             DATA_CAFETERIA: cafeteria,
             DATA_SCHOOL_EVENTS: events,
         }
+
+    def _issue_id(self, key: str) -> str:
+        """Repairs issue id for a degraded-section key ('section|student')."""
+        return f"{self.entry.entry_id}_degraded_{key}"
+
+    def _update_repair_issues(self) -> None:
+        """Raise/clear Repairs cards for *persistent* section failures.
+
+        A section that degrades for ``_DEGRADED_THRESHOLD`` refreshes in a row
+        gets a Repairs card; it clears automatically once the section loads
+        again. The streak threshold keeps a one-off transient error from raising
+        anything. Runs only after a successful refresh (a hard failure is
+        surfaced by the Status sensor / reauth flow instead).
+        """
+        current = {f"{d['section']}|{d['student']}": d for d in self.degraded}
+        # Sections that recovered this refresh: reset the streak + clear the card.
+        for key in [k for k in self._degraded_streak if k not in current]:
+            del self._degraded_streak[key]
+            ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(key))
+        # Sections still failing: bump the streak, raise a card past the threshold.
+        for key, record in current.items():
+            self._degraded_streak[key] = self._degraded_streak.get(key, 0) + 1
+            if self._degraded_streak[key] >= _DEGRADED_THRESHOLD:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    self._issue_id(key),
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="section_degraded",
+                    translation_placeholders={
+                        "section": record["section"],
+                        "student": record["student"],
+                        "error": record["error"],
+                    },
+                )
 
     async def _fetch_student(
         self, student: dict[str, str], today: date

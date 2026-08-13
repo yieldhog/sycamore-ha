@@ -53,15 +53,15 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 | `entity-device-class` | ✅ | timestamp / problem / measurement |
 | `devices` | ✅ | per student + school + service device |
 | `entity-category` | ✅ | diagnostics set |
-| `dynamic-devices` | 🟡 | entities added dynamically; devices are per configured student |
-| `entity-disabled-by-default` | 🟡 | consider disabling niche entities by default |
+| `dynamic-devices` | ➖ | no runtime device discovery — students are fixed at config time (a cloud service, not a hub); entities like grade sensors still appear dynamically |
+| `entity-disabled-by-default` | ✅ | nothing niche is default-on: attendance/discipline are gated by fetch toggles, and health/detail sensors are `diagnostic` |
 | `diagnostics` | ✅ | redacts token, student ids/names, and teacher names; academic data kept de-identified |
 | `discovery` | ➖ | cloud service — no local discovery |
 | `reconfiguration-flow` | ✅ | reconfigure step updates token + School ID without re-adding |
-| `repair-issues` | ❌ | surface e.g. missing-scope via the repairs/issue registry |
-| `icon-translations` | ❌ | move inline `_attr_icon` → `icons.json` |
-| `exception-translations` | ❌ | translated exception messages |
-| `docs-*` (data-update / limitations / troubleshooting / examples) | ❌ | |
+| `exception-translations` | ✅ | the `sync_calendar` action error uses a translated exception (`exceptions` in `strings.json`) |
+| `repair-issues` | ✅ | a section failing for 3 refreshes in a row raises an auto-clearing Repairs card (`section_degraded`), built on the `degraded` tracking |
+| `icon-translations` | ✅ | static entity icons defined in `icons.json` |
+| `docs-*` (data-update / limitations / troubleshooting / examples) | ❌ | needs a home-assistant.io page (core-only; the README serves HACS users) |
 
 ## 💎 Platinum
 
@@ -70,6 +70,12 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 | `inject-websession` | ✅ | uses HA's shared httpx client |
 | `async-dependency` | ❌ | needs the async PyPI library |
 | `strict-typing` | ❌ | enforce full type hints under core's strict mypy |
+
+## Where we stand
+
+Bronze and Silver are complete except the three core-only levers below; **Gold is
+complete except `docs-*`** (which needs a home-assistant.io page — a core concern,
+not a HACS one). Platinum needs the library extraction + strict typing.
 
 ## Biggest remaining levers
 

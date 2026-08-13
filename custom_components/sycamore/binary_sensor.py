@@ -62,7 +62,6 @@ class SycamoreTestSoonBinarySensor(SycamoreStudentEntity, BinarySensorEntity):
     """On when a test/quiz is due within the next day."""
 
     _attr_translation_key = "test_within_24h"
-    _attr_icon = "mdi:clipboard-alert"
 
     def __init__(self, coordinator, student_id, student_name) -> None:  # noqa: D107
         super().__init__(coordinator, student_id, student_name)

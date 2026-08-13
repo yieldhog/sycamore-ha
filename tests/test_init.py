@@ -480,6 +480,38 @@ async def test_endpoint_500_degrades_not_fails(hass: HomeAssistant):
     assert degraded and any("homework" in d for d in degraded)
 
 
+async def test_persistent_degraded_raises_and_clears_repair(hass: HomeAssistant):
+    """A section that keeps failing raises a Repairs issue that auto-clears."""
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", HomeworkErrorClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = entry.runtime_data
+        reg = ir.async_get(hass)
+        issue_id = f"{entry.entry_id}_degraded_homework|Jane"
+
+        # One failure so far (from setup) — below the threshold, no issue yet.
+        assert reg.async_get_issue(DOMAIN, issue_id) is None
+
+        # Two more failing refreshes cross the threshold -> issue raised.
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+        assert reg.async_get_issue(DOMAIN, issue_id) is not None
+
+        # Homework recovers -> the issue clears on the next refresh.
+        with patch.object(
+            HomeworkErrorClient, "async_get_homework", new=AsyncMock(return_value=[])
+        ):
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+        assert reg.async_get_issue(DOMAIN, issue_id) is None
+
+
 class NoAttendanceClient(FakeClient):
     """Fails if attendance is fetched, proving the toggle skips the call."""
 
