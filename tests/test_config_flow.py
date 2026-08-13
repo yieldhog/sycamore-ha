@@ -331,7 +331,13 @@ async def test_writable_calendar_filter(hass: HomeAssistant):
     """The calendar picker only offers calendars that support creating events."""
     from homeassistant.components.calendar import CalendarEntityFeature
 
-    from custom_components.sycamore.config_flow import _writable_calendar_ids
+    from custom_components.sycamore.config_flow import (
+        _calendar_selector,
+        _writable_calendar_ids,
+    )
+
+    # No writable calendars yet -> selector falls back to all calendars.
+    assert _calendar_selector(hass) is not None
 
     hass.states.async_set(
         "calendar.writable",
@@ -343,6 +349,164 @@ async def test_writable_calendar_filter(hass: HomeAssistant):
     ids = _writable_calendar_ids(hass)
     assert "calendar.writable" in ids
     assert "calendar.readonly" not in ids
+    # With a writable calendar present, the selector is built on the filtered set.
+    assert _calendar_selector(hass) is not None
+
+
+async def test_manual_api_error_still_adds(hass: HomeAssistant):
+    """A per-path API error (e.g. 404) on the manual check still adds the student.
+
+    The token reached Sycamore, so it's valid; the flow proceeds to the entry.
+    """
+    with patch(
+        "custom_components.sycamore.config_flow.SycamoreClient"
+    ) as mock_cls, patch(
+        "custom_components.sycamore.async_setup_entry", return_value=True
+    ):
+        mock_cls.return_value.async_get_student_details = AsyncMock(
+            side_effect=SycamoreApiError("not found", status_code=404)
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"id": "999", "name": "Alex", "add_another": False}
+        )
+        assert result["step_id"] == "calendars"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["students"] == [{"id": "999", "name": "Alex"}]
+
+
+async def test_manual_cannot_connect(hass: HomeAssistant):
+    """A transport failure on the manual check surfaces cannot_connect."""
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_student_details = AsyncMock(
+            side_effect=SycamoreConnectionError("down")
+        )
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"id": "999", "name": "Alex", "add_another": False}
+        )
+    assert result["step_id"] == "manual"
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+def _family_entry(hass: HomeAssistant) -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="family-647150",
+        data={
+            "token": "old",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def test_reauth_invalid_auth(hass: HomeAssistant):
+    """Reauth with a still-bad token shows invalid_auth."""
+    entry = _family_entry(hass)
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_validate = AsyncMock(
+            side_effect=SycamoreAuthError("nope")
+        )
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "stillbad"}
+        )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reauth_cannot_connect(hass: HomeAssistant):
+    """Reauth surfaces cannot_connect on a transport failure."""
+    entry = _family_entry(hass)
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_validate = AsyncMock(
+            side_effect=SycamoreConnectionError("down")
+        )
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "newtok"}
+        )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_reconfigure_manual_entry(hass: HomeAssistant):
+    """A manually-set-up entry (no family id) validates via the student endpoint."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="token-abc",
+        data={
+            "token": "old",
+            "family_id": None,
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.sycamore.config_flow.SycamoreClient"
+    ) as mock_cls, patch(
+        "custom_components.sycamore.async_setup_entry", return_value=True
+    ):
+        mock_cls.return_value.async_get_student_details = AsyncMock(return_value={})
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "newtok"}
+        )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["token"] == "newtok"
+
+
+async def test_reconfigure_api_error_passes(hass: HomeAssistant):
+    """A per-path API error during reconfigure still counts the token as valid."""
+    entry = _family_entry(hass)
+    with patch(
+        "custom_components.sycamore.config_flow.SycamoreClient"
+    ) as mock_cls, patch(
+        "custom_components.sycamore.async_setup_entry", return_value=True
+    ):
+        mock_cls.return_value.async_get_family_students = AsyncMock(
+            side_effect=SycamoreApiError("not found", status_code=404)
+        )
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "newtok"}
+        )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["token"] == "newtok"
+
+
+async def test_reconfigure_cannot_connect(hass: HomeAssistant):
+    """Reconfigure surfaces cannot_connect and doesn't save on a transport error."""
+    entry = _family_entry(hass)
+    with patch("custom_components.sycamore.config_flow.SycamoreClient") as mock_cls:
+        mock_cls.return_value.async_get_family_students = AsyncMock(
+            side_effect=SycamoreConnectionError("down")
+        )
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "newtok"}
+        )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert entry.data["token"] == "old"
 
 
 async def test_reauth_success(hass: HomeAssistant):

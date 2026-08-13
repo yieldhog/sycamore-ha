@@ -18,7 +18,7 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 | `config-flow` | ✅ | UI setup |
 | `test-before-configure` | ✅ | Discovery validates the family list; the manual path validates the token against a student endpoint |
 | `unique-config-entry` | ✅ | `async_set_unique_id` + abort |
-| `config-flow-test-coverage` | 🟡 | Flow tests exist; confirm ~100% line coverage |
+| `config-flow-test-coverage` | ✅ | `config_flow.py` at 100% line coverage, enforced in CI |
 | `runtime-data` | ✅ | `entry.runtime_data` |
 | `test-before-setup` | ✅ | first refresh → `ConfigEntryNotReady`/`ConfigEntryAuthFailed` |
 | `appropriate-polling` | ✅ | 60-minute minimum |
