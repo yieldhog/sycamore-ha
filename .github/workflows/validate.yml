@@ -60,9 +60,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_test.txt
-      - name: Run pytest (with coverage)
-        run: python -m pytest -q --cov=custom_components/sycamore --cov-report=term-missing
-      # The config flow is the least forgiving place for a regression (a broken
-      # step blocks setup for everyone), so keep it at 100% line coverage.
+      # Silver quality-scale bar is >95% overall; the config flow (the least
+      # forgiving place for a regression) is held to 100%.
+      - name: Run pytest (with coverage, >=95% overall)
+        run: python -m pytest -q --cov=custom_components/sycamore --cov-report=term-missing --cov-fail-under=95
       - name: Enforce 100% config-flow coverage
         run: coverage report --include="*/config_flow.py" --fail-under=100

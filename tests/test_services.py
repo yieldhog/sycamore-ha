@@ -141,6 +141,35 @@ async def test_service_registered_without_config_entry(hass: HomeAssistant):
         )
 
 
+async def test_sync_explicit_missing_target_raises(hass: HomeAssistant):
+    """An explicit target_calendar that doesn't exist raises a clear error."""
+    await _setup(hass)
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "sync_calendar",
+            {"target_calendar": "calendar.does_not_exist"},
+            blocking=True,
+        )
+
+
+async def test_sync_explicit_readonly_target_raises(hass: HomeAssistant):
+    """An explicit target_calendar that can't create events raises a clear error."""
+    await _setup(hass)
+
+    class _ReadOnly:
+        supported_features = 0
+
+    hass.data["calendar"].get_entity = lambda entity_id: _ReadOnly()
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "sync_calendar",
+            {"target_calendar": "calendar.readonly"},
+            blocking=True,
+        )
+
+
 async def test_sync_creates_event(hass: HomeAssistant):
     """An upcoming item not on the calendar is created, with the description."""
     await _setup(hass)

@@ -112,6 +112,28 @@ def _get_calendar_entity(hass: HomeAssistant, entity_id: str):
     return component.get_entity(entity_id) if component else None
 
 
+def _validate_target(hass: HomeAssistant, entity_id: str) -> None:
+    """Raise ServiceValidationError if a user-named target calendar is unusable.
+
+    Only for an explicit ``target_calendar`` on the action — a direct user
+    error should surface, not silently no-op. Per-student mapped calendars keep
+    logging (they're reconciled non-interactively by auto-sync).
+    """
+    entity = _get_calendar_entity(hass, entity_id)
+    if entity is None:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="calendar_not_found",
+            translation_placeholders={"calendar": entity_id},
+        )
+    if not entity.supported_features & CalendarEntityFeature.CREATE_EVENT:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="calendar_not_writable",
+            translation_placeholders={"calendar": entity_id},
+        )
+
+
 def _student_matches(student: dict[str, str], wanted: list[str]) -> bool:
     ident = {student["id"].lower(), student["name"].lower()}
     return any(w.strip().lower() in ident for w in wanted)
@@ -282,6 +304,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         wanted: list[str] | None = call.data.get(ATTR_STUDENT)
         days: int = call.data[ATTR_DAYS]
         prefix: bool = call.data[ATTR_PREFIX_NAME]
+
+        # A calendar the user named explicitly must exist and be writable.
+        if override_target is not None:
+            _validate_target(hass, override_target)
 
         assignments: list[tuple[str, Any, dict[str, str]]] = []
         for entry in hass.config_entries.async_entries(DOMAIN):
