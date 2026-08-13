@@ -5,8 +5,11 @@ from __future__ import annotations
 from datetime import date, timedelta
 from unittest.mock import patch
 
+import pytest
 from homeassistant.components.calendar import CalendarEntityFeature, CalendarEvent
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -117,6 +120,25 @@ async def _sync(hass: HomeAssistant, **data):
         DOMAIN, "sync_calendar", payload, blocking=True
     )
     await hass.async_block_till_done()
+
+
+async def test_service_registered_without_config_entry(hass: HomeAssistant):
+    """The action registers at component setup, even with no config entry.
+
+    (action-setup) With no loaded entry there's nothing to sync, so the call
+    raises a clean ServiceValidationError instead of the service being missing.
+    """
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+    assert hass.services.has_service(DOMAIN, "sync_calendar")
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "sync_calendar",
+            {"target_calendar": "calendar.school"},
+            blocking=True,
+        )
 
 
 async def test_sync_creates_event(hass: HomeAssistant):
