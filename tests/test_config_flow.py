@@ -327,6 +327,24 @@ async def test_reconfigure_invalid_auth(hass: HomeAssistant):
     assert entry.data["token"] == "old"
 
 
+async def test_writable_calendar_filter(hass: HomeAssistant):
+    """The calendar picker only offers calendars that support creating events."""
+    from homeassistant.components.calendar import CalendarEntityFeature
+
+    from custom_components.sycamore.config_flow import _writable_calendar_ids
+
+    hass.states.async_set(
+        "calendar.writable",
+        "on",
+        {"supported_features": CalendarEntityFeature.CREATE_EVENT},
+    )
+    hass.states.async_set("calendar.readonly", "on", {"supported_features": 0})
+
+    ids = _writable_calendar_ids(hass)
+    assert "calendar.writable" in ids
+    assert "calendar.readonly" not in ids
+
+
 async def test_reauth_success(hass: HomeAssistant):
     """Reauth with a valid token updates the entry and aborts successfully."""
     entry = MockConfigEntry(

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from homeassistant.components.calendar import CalendarEntityFeature, CalendarEvent
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sycamore.const import CONF_CALENDAR_TARGETS, DOMAIN
@@ -23,7 +24,7 @@ class _Client:
         return []
 
     async def async_get_homework(self, student_id):
-        tomorrow = (date.today() + timedelta(days=1)).strftime("%m/%d/%Y")
+        tomorrow = (dt_util.now().date() + timedelta(days=1)).strftime("%m/%d/%Y")
         return [
             {
                 "Title": "Chapter 3 Quiz",
@@ -137,7 +138,7 @@ async def test_sync_deletes_stale(hass: HomeAssistant):
     """An event we created that no longer matches any item is deleted."""
     await _setup(hass)
     stale = _tagged_event(
-        "111", "deadbeef0000", "g-stale", date.today() + timedelta(days=2)
+        "111", "deadbeef0000", "g-stale", dt_util.now().date() + timedelta(days=2)
     )
     fake, created = _install_fake_calendar(hass, events=[stale])
     await _sync(hass, target_calendar="calendar.school")
@@ -149,7 +150,7 @@ async def test_sync_deletes_stale(hass: HomeAssistant):
 async def test_sync_dedupes_unchanged(hass: HomeAssistant):
     """An already-synced item is neither re-created nor deleted."""
     await _setup(hass)
-    tomorrow = date.today() + timedelta(days=1)
+    tomorrow = dt_util.now().date() + timedelta(days=1)
     item_hash = _item_hash(
         "111", {"subject": "Mathematics", "title": "Chapter 3 Quiz", "due": tomorrow}
     )
@@ -178,7 +179,7 @@ async def test_sync_shared_calendar_is_student_scoped(hass: HomeAssistant):
         students=[{"id": "111", "name": "Jane"}, {"id": "222", "name": "John"}],
     )
     coordinator = entry.runtime_data
-    due = date.today() + timedelta(days=3)
+    due = dt_util.now().date() + timedelta(days=3)
     jane_hw = {
         "title": "Math HW", "subject": "Mathematics", "due": due,
         "is_test": False, "kind": "assignment", "description": "",
@@ -280,9 +281,9 @@ async def test_sync_full_lifecycle(hass: HomeAssistant):
             return_response=True,
         )
 
-    d2 = date.today() + timedelta(days=2)
-    d5 = date.today() + timedelta(days=5)
-    d9 = date.today() + timedelta(days=9)
+    d2 = dt_util.now().date() + timedelta(days=2)
+    d5 = dt_util.now().date() + timedelta(days=5)
+    d9 = dt_util.now().date() + timedelta(days=9)
 
     coordinator.data = {
         "students": {

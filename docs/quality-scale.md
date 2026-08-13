@@ -55,7 +55,7 @@ Legend: ✅ done · 🟡 partial · ❌ to do · ➖ not applicable
 | `entity-category` | ✅ | diagnostics set |
 | `dynamic-devices` | 🟡 | entities added dynamically; devices are per configured student |
 | `entity-disabled-by-default` | 🟡 | consider disabling niche entities by default |
-| `diagnostics` | ✅ | redaction could be tightened (also cover student names) |
+| `diagnostics` | ✅ | redacts token, student ids/names, and teacher names; academic data kept de-identified |
 | `discovery` | ➖ | cloud service — no local discovery |
 | `reconfiguration-flow` | ✅ | reconfigure step updates token + School ID without re-adding |
 | `repair-issues` | ❌ | surface e.g. missing-scope via the repairs/issue registry |
