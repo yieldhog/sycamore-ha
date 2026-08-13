@@ -50,7 +50,8 @@
       "invalid_auth": "The access token was rejected. Check that it is valid and has the right scopes.",
       "cannot_connect": "Could not reach Sycamore. Try again shortly.",
       "family_access_denied": "Couldn't read the family list. Your access token may not have the 'Families' scope — leave Family ID blank to add students manually, or enable that scope in Sycamore.",
-      "no_students": "No students were found for that Family ID."
+      "no_students": "No students were found for that Family ID.",
+      "invalid_school_id": "That School ID didn't work. Double-check it, or leave it blank (the lunch menu and school events need a valid School ID)."
     },
     "abort": {
       "already_configured": "This Sycamore account is already configured.",

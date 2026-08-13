@@ -142,7 +142,10 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
             self._school_id = (user_input.get(CONF_SCHOOL_ID) or "").strip() or None
             client = SycamoreClient(self.hass, self._token)
 
-            if self._family_id:
+            if self._school_id:
+                errors = await self._validate_school_id(client, self._school_id)
+
+            if not errors and self._family_id:
                 try:
                     self._discovered = await client.async_get_family_students(
                         self._family_id
@@ -162,7 +165,7 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
                         self._abort_if_unique_id_configured()
                         return await self.async_step_select()
                     errors["base"] = "no_students"
-            else:
+            elif not errors:
                 # No family id: skip discovery, add students by hand.
                 return await self.async_step_manual()
 
@@ -176,6 +179,26 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=schema, errors=errors
         )
+
+    async def _validate_school_id(
+        self, client: SycamoreClient, school_id: str
+    ) -> dict[str, str]:
+        """Return a config-flow errors dict after probing the School ID.
+
+        A wrong id makes the school endpoints error (``SycamoreApiError``, e.g. a
+        404); a valid id returns data or an empty body, so it passes. This is
+        best-effort — it catches typos that error, so lunch/events don't just
+        silently fail to appear.
+        """
+        try:
+            await client.async_get_cafeteria(school_id)
+        except SycamoreAuthError:
+            return {"base": "invalid_auth"}
+        except SycamoreApiError:
+            return {"base": "invalid_school_id"}
+        except SycamoreConnectionError:
+            return {"base": "cannot_connect"}
+        return {}
 
     async def async_step_select(
         self, user_input: dict[str, Any] | None = None
@@ -367,6 +390,9 @@ class SycamoreConfigFlow(ConfigFlow, domain=DOMAIN):
                 pass  # token reached Sycamore -> valid; a per-path error is fine
             except SycamoreConnectionError:
                 errors["base"] = "cannot_connect"
+
+            if not errors and school_id:
+                errors = await self._validate_school_id(client, school_id)
 
             if not errors:
                 return self.async_update_reload_and_abort(

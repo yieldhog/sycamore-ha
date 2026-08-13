@@ -471,8 +471,13 @@ async def test_endpoint_500_degrades_not_fails(hass: HomeAssistant):
     assert hass.states.get("sensor.jane_mathematics") is not None
     assert hass.states.get("sensor.jane_missing_work").state == "1"
     assert hass.states.get("sensor.jane_upcoming_work").state == "0"
-    # A single-section 500 is not a failed refresh, so health stays OK.
-    assert hass.states.get("binary_sensor.sycamore_status").state == "off"
+    # A single-section 500 is not a failed refresh, so health stays OK...
+    status = hass.states.get("binary_sensor.sycamore_status")
+    assert status.state == "off"
+    # ...but the failed section is surfaced so a user can tell it apart from
+    # "no data yet".
+    degraded = status.attributes["degraded"]
+    assert degraded and any("homework" in d for d in degraded)
 
 
 class NoAttendanceClient(FakeClient):

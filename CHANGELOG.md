@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.12] - 2026-08-13
 
+### Added
+
+- **Troubleshooting: the Status sensor lists degraded sections.** When one
+  endpoint keeps erroring but the rest load, the refresh still succeeds and that
+  section just goes empty — the **Status** binary sensor now exposes a
+  `degraded` attribute naming what failed and why (e.g. `homework (Nicholas):
+  HTTP 500`), so you can tell an erroring endpoint from "no data yet".
+- **School ID is validated at setup and reconfigure.** A wrong School ID now
+  shows a clear error instead of silently leaving the lunch menu and
+  school-events entities missing.
+
 ### Changed
 
 - **The `sycamore.sync_calendar` action is registered at integration setup**
@@ -14,11 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loaded (e.g. a failed setup or a reload). Automations that call it no longer
   break with "service not found"; if there's nothing to sync, the call raises a
   clear error instead. No change to how the action behaves in normal use.
-
-## [0.1.11] - 2026-08-12
-
-### Changed
-
 - **Calendar sync picker lists only writable calendars.** The per-child calendar
   picker (at setup and in options) now offers only calendars that support adding
   events, so you can't pick a read-only calendar as a sync target by mistake. If
@@ -248,7 +254,6 @@ homework calendar, missing-work to-do, binary sensors, attendance, and the optio
 lunch sensor/calendar).
 
 [0.1.12]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.12
-[0.1.11]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.11
 [0.1.10]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.10
 [0.1.9]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.9
 [0.1.8]: https://github.com/yieldhog/sycamore-ha/releases/tag/v0.1.8

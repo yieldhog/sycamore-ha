@@ -137,10 +137,15 @@ your token can't read it).
 | Entity | Platform | State |
 | --- | --- | --- |
 | Last updated | sensor | Timestamp of the last **successful** poll (diagnostic) |
-| Status | binary_sensor | `problem` — **on** when the last refresh failed; `error` attribute has the reason (diagnostic) |
+| Status | binary_sensor | `problem` — **on** when the last refresh failed; `error` attribute has the reason. A `degraded` attribute lists any single section that errored but was tolerated (diagnostic) |
 
 Both stay **available even during a failure**, so you can automate on them (e.g. notify
 if *Status* is on, or if *Last updated* is more than a few hours old).
+
+> **Troubleshooting empty data.** If a section (say homework) is unexpectedly empty
+> while *Status* is still green, check the Status sensor's **`degraded`** attribute —
+> it names any endpoint that erred this refresh (e.g. `homework (Nicholas): HTTP 500`).
+> Empty there means it's genuinely "no data yet" (off-season), not a failure.
 
 > **`Unknown` is not "broken".** Between terms (or before any data posts) sensors like
 > *Grade average* and *Next test* read `Unknown` — they're alive, there's just no value

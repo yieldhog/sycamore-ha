@@ -115,6 +115,10 @@ class SycamoreStatusBinarySensor(SycamoreServiceEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         error = self.coordinator.last_exception
+        degraded = [
+            f"{d['section']} ({d['student']}): {d['error']}"
+            for d in self.coordinator.degraded
+        ]
         return {
             "error": str(error) if error else None,
             "last_success": (
@@ -122,4 +126,7 @@ class SycamoreStatusBinarySensor(SycamoreServiceEntity, BinarySensorEntity):
                 if self.coordinator.last_success
                 else None
             ),
+            # Sections that errored but were tolerated this refresh (empty when
+            # all data loaded). Lets you tell "endpoint erroring" from "no data".
+            "degraded": degraded or None,
         }
