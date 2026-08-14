@@ -5,7 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.14] - 2026-08-13
+## [0.1.14] - 2026-08-14
+
+### Added
+
+- **Scannable lunch menu.** The school lunch calendar event now leads its
+  description with a bare list of the day's meal options (one per line), then a
+  divider, then the per-option ingredient detail — so you can see the choices at
+  a glance and still drill into what's in each. The today's-lunch sensor also
+  gains an `options` attribute (a plain list of the option names) for easy
+  templating in dashboards and automations.
 
 ### Changed
 
