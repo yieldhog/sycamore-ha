@@ -24,6 +24,7 @@ from .const import (
     DATA_GRADES,
     DATA_HOMEWORK,
     DATA_MISSING,
+    DATA_NEWS,
     DATA_SCHOOL_EVENTS,
 )
 from .coordinator import SycamoreDataUpdateCoordinator
@@ -64,6 +65,8 @@ async def async_setup_entry(
         entities.append(SycamoreLunchSensor(coordinator))
     if coordinator.school_id and coordinator.events_enabled:
         entities.append(SycamoreNextEventSensor(coordinator))
+    if coordinator.school_id and coordinator.news_enabled:
+        entities.append(SycamoreNewsSensor(coordinator))
     entities.append(SycamoreLastUpdatedSensor(coordinator))
     async_add_entities(entities)
 
@@ -591,4 +594,40 @@ class SycamoreNextEventSensor(SycamoreSchoolEntity, SensorEntity):
         return {
             "title": item["title"],
             "all_day": not isinstance(start, datetime),
+        }
+
+
+class SycamoreNewsSensor(SycamoreSchoolEntity, SensorEntity):
+    """The school's latest news/announcement headline (school-level).
+
+    State is the newest headline; the recent items (with their published
+    timestamps) are exposed as attributes for an announcements-feed card.
+    """
+
+    _attr_translation_key = "latest_news"
+
+    def __init__(self, coordinator: SycamoreDataUpdateCoordinator) -> None:
+        """Initialize the latest-news sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_latest_news"
+
+    def _items(self) -> list[dict[str, Any]]:
+        return (self.coordinator.data or {}).get(DATA_NEWS) or []
+
+    @property
+    def native_value(self) -> str | None:
+        # None = not fetched yet / degraded; [] = fetched but nothing posted (or
+        # the school has no news feed); a list = real headlines.
+        news = (self.coordinator.data or {}).get(DATA_NEWS)
+        if news:
+            return news[0]["title"][:255]
+        return "No news" if news == [] else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        items = self._items()
+        return {
+            "count": len(items),
+            "items": items,
+            "latest_published": items[0]["published"] if items else None,
         }

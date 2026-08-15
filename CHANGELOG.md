@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **School news sensor.** Schools that publish a news/announcements feed (the
+  `School/{id}/News` endpoint) now get a school-level **Latest news** sensor —
+  its state is the most recent headline, with the recent items (title +
+  published time) in its attributes for an announcements card. Gated by a new
+  "School news sensor" option (on by default when a School ID is set); turn it
+  off to skip the extra request. This is distinct from the events calendar:
+  some schools expose News but not Events.
 - **Timed homework/test events (optional).** A new "Event time" option turns the
   all-day homework and test calendar events into timed events at a chosen hour on
   the due date (e.g. 8:00 AM) — applied both to the built-in calendars and to

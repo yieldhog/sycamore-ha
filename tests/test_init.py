@@ -61,6 +61,14 @@ class FakeClient:
              "Day": "08/14/26", "Start": "16:00", "Duration": "00:45", "AllDay": 0},
         ]
 
+    async def async_get_news(self, school_id):
+        return [
+            {"ID": 2033346, "Title": "GS July Update 2026",
+             "Day": "07/19/26", "UnixTime": 1784502000},
+            {"ID": 2032670, "Title": "GS Weekly News 5/24/26",
+             "Day": "05/26/26", "UnixTime": 1779819960},
+        ]
+
     async def async_get_cafeteria(self, school_id):
         return []
 
@@ -616,6 +624,102 @@ async def test_events_404_is_quiet_no_repair(hass: HomeAssistant):
     assert reg.async_get_issue(DOMAIN, issue_id) is None
     # Treated as an empty calendar (not left unset), so it reads as "no events".
     assert coordinator.data["school_events"] == []
+
+
+async def test_news_sensor_populated(hass: HomeAssistant):
+    """The News endpoint drives a school-level 'Latest news' sensor."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    eid = reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_latest_news")
+    assert eid
+    state = hass.states.get(eid)
+    # Newest-first: the July item wins over the May one.
+    assert state.state == "GS July Update 2026"
+    assert state.attributes["count"] == 2
+    assert state.attributes["items"][0]["title"] == "GS July Update 2026"
+    assert state.attributes["items"][0]["published"] is not None
+
+
+class NewsNotFoundClient(FakeClient):
+    """The school has no News endpoint (404)."""
+
+    async def async_get_news(self, school_id):
+        from custom_components.sycamore.api import SycamoreApiError
+
+        raise SycamoreApiError(
+            f"School/{school_id}/News returned HTTP 404", status_code=404
+        )
+
+
+async def test_news_404_reads_no_news_quietly(hass: HomeAssistant):
+    """A 404 on News shows 'No news' and never degrades/repairs."""
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", NewsNotFoundClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    eid = reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_latest_news")
+    assert hass.states.get(eid).state == "No news"
+    coordinator = entry.runtime_data
+    assert not any(d["section"] == "news" for d in coordinator.degraded)
+    issue_id = f"{entry.entry_id}_degraded_news|School"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+class NewsDisabledClient(FakeClient):
+    """Fails if news is fetched, proving the toggle skips the call."""
+
+    async def async_get_news(self, school_id):
+        raise AssertionError("news must not be fetched when disabled")
+
+
+async def test_news_disabled_skips_fetch(hass: HomeAssistant):
+    """With news off, the endpoint isn't polled and no sensor is created."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "news_enabled": False},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", NewsDisabledClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    reg = er.async_get(hass)
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_latest_news") is None
 
 
 async def test_homework_event_time_makes_timed_events(hass: HomeAssistant):

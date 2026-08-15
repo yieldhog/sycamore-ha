@@ -199,6 +199,13 @@ class SycamoreClient:
         """GET /School/{id}/Events (school calendar)."""
         return self._as_list(await self._get(f"School/{school_id}/Events"))
 
+    async def async_get_news(self, school_id: str) -> list[dict[str, Any]]:
+        """GET /School/{id}/News (school announcements/newsletters).
+
+        Each item carries ``ID``, ``Title``, ``Day`` (MM/DD/YY) and ``UnixTime``.
+        """
+        return self._as_list(await self._get(f"School/{school_id}/News"))
+
     async def async_get_cafeteria(self, school_id: str) -> dict[str, Any]:
         """GET /School/{id}/Cafeteria (lunch menu).
 

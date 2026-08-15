@@ -21,7 +21,8 @@
       "homeroom_teacher": { "default": "mdi:human-male-board" },
       "todays_lunch": { "default": "mdi:food-apple" },
       "last_updated": { "default": "mdi:cloud-check-variant" },
-      "next_school_event": { "default": "mdi:calendar-star" }
+      "next_school_event": { "default": "mdi:calendar-star" },
+      "latest_news": { "default": "mdi:newspaper-variant-outline" }
     },
     "todo": {
       "missing_work": { "default": "mdi:format-list-checks" }

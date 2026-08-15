@@ -87,10 +87,17 @@ If you leave Family ID blank, you can add students by hand (Student ID + display
   "next N days" horizon: the *Upcoming work* sensor reports the assignments due within
   this window (its count is the state; the assignments are listed in its attributes).
   Set it to `14` for a two-week view, and so on.
-- **Attendance**, **Lunch**, **Discipline**, and **School events** toggles — each gates
-  its own endpoint, so turning one off stops the coordinator polling it and removes its
-  entities. Discipline is **off by default** (niche and sensitive); School events needs a
-  School ID and adds a *School events* calendar + *Next school event* sensor.
+- **Attendance**, **Lunch**, **Discipline**, **School events**, and **School news**
+  toggles — each gates its own endpoint, so turning one off stops the coordinator polling
+  it and removes its entities. Discipline is **off by default** (niche and sensitive);
+  School events needs a School ID and adds a *School events* calendar + *Next school
+  event* sensor; School news needs a School ID and adds a *Latest news* sensor (some
+  schools publish news but not events).
+- **Event time** — leave blank for all-day homework/test events (default), or set an hour
+  (e.g. `08:00`) to make them timed at that time on the due date, in both the built-in
+  calendars and any synced calendar. For a reminder at a fixed time the day before, set
+  your Google calendar's default notification to the matching offset (an 8:00 due-time
+  with a 3:00 PM prior-day reminder is "17 hours before").
 
 Every other sensor can be enabled or disabled individually from its own entity settings
 in Home Assistant.
@@ -127,6 +134,7 @@ School-level (only with a School ID):
 | Lunch | calendar | The pulled cafeteria menu, one all-day event per day (meal names as summary, full details in the description) |
 | School events | calendar | The school calendar — all-day and timed events (title, start/end) |
 | Next school event | sensor | Start time of the next school event (`timestamp`); title/all-day as attributes |
+| Latest news | sensor | Most recent school news headline; `items` attr = recent announcements (title + published time), `count`/`latest_published` too |
 
 The device for each student also shows their **grade level** as the device model, pulled
 from the student profile (no toggle — it's fetched with the rest and degrades quietly if

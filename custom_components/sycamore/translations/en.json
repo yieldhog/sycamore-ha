@@ -71,6 +71,7 @@
           "lunch_enabled": "Lunch menu sensor",
           "discipline_enabled": "Discipline log sensor",
           "events_enabled": "School events calendar",
+          "news_enabled": "School news sensor",
           "calendar_autosync": "Auto-sync calendars after each refresh",
           "calendar_days": "Calendar sync window (days ahead)",
           "event_time": "Event time (leave blank for all-day)"
@@ -82,6 +83,7 @@
           "lunch_enabled": "When off, the cafeteria endpoint is not polled and the lunch sensor is removed.",
           "discipline_enabled": "When on, the discipline log is polled and a per-student discipline-events sensor is added. Off by default.",
           "events_enabled": "When on (and a School ID is set), the school calendar is polled and added as a 'School events' calendar plus a 'Next school event' sensor.",
+          "news_enabled": "When on (and a School ID is set), the school news/announcements feed is polled and added as a 'Latest news' sensor (recent headlines in its attributes).",
           "calendar_autosync": "When on, each child with a target calendar is synced automatically after every poll. When off, use the sycamore.sync_calendar service manually.",
           "calendar_days": "How many days ahead of assignments/tests to put on the calendar.",
           "event_time": "Blank = all-day events. Set a time (e.g. 08:00) to make homework/test events timed at that hour on the due date. For a reminder at a fixed time the day before, set your Google calendar's default notification to the matching offset — e.g. an 8:00 due-time with a 3:00 PM prior-day reminder is 17 hours before."
@@ -103,6 +105,7 @@
       "grade_level": { "name": "Grade level" },
       "homeroom_teacher": { "name": "Homeroom teacher" },
       "next_school_event": { "name": "Next event" },
+      "latest_news": { "name": "Latest news" },
       "todays_lunch": { "name": "Today's lunch" },
       "last_updated": { "name": "Last updated" }
     },

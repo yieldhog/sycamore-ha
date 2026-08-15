@@ -28,6 +28,7 @@ from .const import (
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
     CONF_ENABLE_LUNCH,
+    CONF_ENABLE_NEWS,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
     CONF_SCHOOL_ID,
@@ -42,11 +43,13 @@ from .const import (
     DATA_HOMEWORK,
     DATA_MISSING,
     DATA_NAME,
+    DATA_NEWS,
     DATA_SCHOOL_EVENTS,
     DEFAULT_ENABLE_ATTENDANCE,
     DEFAULT_ENABLE_DISCIPLINE,
     DEFAULT_ENABLE_EVENTS,
     DEFAULT_ENABLE_LUNCH,
+    DEFAULT_ENABLE_NEWS,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
     DOMAIN,
@@ -68,6 +71,9 @@ _LOGGER = logging.getLogger(__name__)
 # Consecutive refreshes a single section must fail before it raises a Repairs
 # issue (so a one-off transient error doesn't). It auto-clears on recovery.
 _DEGRADED_THRESHOLD = 3
+
+# Cap on how many recent news items the sensor keeps as attributes.
+_MAX_NEWS_ITEMS = 25
 
 
 class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -99,6 +105,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._events_enabled: bool = options.get(
             CONF_ENABLE_EVENTS, DEFAULT_ENABLE_EVENTS
+        )
+        self._news_enabled: bool = options.get(
+            CONF_ENABLE_NEWS, DEFAULT_ENABLE_NEWS
         )
         interval = int(
             options.get(CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES)
@@ -153,6 +162,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self._events_enabled
 
     @property
+    def news_enabled(self) -> bool:
+        """Whether the school news/announcements feed is enabled."""
+        return self._news_enabled
+
+    @property
     def event_time(self) -> dtime | None:
         """Optional time-of-day for homework/test events; None = all-day.
 
@@ -185,37 +199,18 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 cafeteria = self._shape_cafeteria(raw_cafeteria)
             events: list[dict[str, Any]] | None = None
             if self._school_id and self._events_enabled:
-                # Isolated: an inaccessible events endpoint shouldn't fail the
-                # whole refresh (auth errors still propagate below).
-                try:
-                    events = self._shape_school_events(
-                        await self.client.async_get_events(self._school_id)
-                    )
-                except SycamoreAuthError:
-                    raise
-                except SycamoreApiError as err:
-                    # A 404 means this school simply doesn't expose the Events
-                    # endpoint — a permanent "feature not available", not a
-                    # degradation. Treat it as an empty calendar and stay quiet
-                    # so it doesn't raise a Repairs issue that can never clear.
-                    if err.status_code == 404:
-                        _LOGGER.debug(
-                            "School %s has no Events endpoint (404); "
-                            "treating as empty",
-                            self._school_id,
-                        )
-                        events = []
-                    else:
-                        _LOGGER.debug("School events fetch failed; leaving unset")
-                        self.degraded.append(
-                            {"student": "School", "section": "events",
-                             "error": str(err)}
-                        )
-                except SycamoreConnectionError as err:
-                    _LOGGER.debug("School events fetch failed; leaving unset")
-                    self.degraded.append(
-                        {"student": "School", "section": "events", "error": str(err)}
-                    )
+                events = await self._fetch_school_section(
+                    self.client.async_get_events(self._school_id),
+                    "events",
+                    self._shape_school_events,
+                )
+            news: list[dict[str, Any]] | None = None
+            if self._school_id and self._news_enabled:
+                news = await self._fetch_school_section(
+                    self.client.async_get_news(self._school_id),
+                    "news",
+                    self._shape_news,
+                )
         except SycamoreAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except SycamoreConnectionError as err:
@@ -227,7 +222,47 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "students": {sid: data for sid, data in results},
             DATA_CAFETERIA: cafeteria,
             DATA_SCHOOL_EVENTS: events,
+            DATA_NEWS: news,
         }
+
+    async def _fetch_school_section(
+        self,
+        coro: Any,
+        section: str,
+        shaper: Any,
+    ) -> list[dict[str, Any]] | None:
+        """Fetch + shape one school-level section, isolating its failures.
+
+        Auth errors propagate (handled by the caller). A 404 means the school
+        simply doesn't expose this endpoint — a permanent "feature not
+        available", not a degradation — so it's treated as empty and stays quiet
+        (no Repairs card that could never clear). Other connection errors degrade
+        the section (surfaced on the Status sensor, repaired if persistent), and
+        the result is left unset. Returns the shaped list, ``[]`` for a 404, or
+        ``None`` when the section degraded.
+        """
+        try:
+            return shaper(await coro)
+        except SycamoreAuthError:
+            raise
+        except SycamoreApiError as err:
+            if err.status_code == 404:
+                _LOGGER.debug(
+                    "School %s has no %s endpoint (404); treating as empty",
+                    self._school_id, section,
+                )
+                return shaper([])
+            _LOGGER.debug("School %s fetch failed; leaving unset", section)
+            self.degraded.append(
+                {"student": "School", "section": section, "error": str(err)}
+            )
+            return None
+        except SycamoreConnectionError as err:
+            _LOGGER.debug("School %s fetch failed; leaving unset", section)
+            self.degraded.append(
+                {"student": "School", "section": section, "error": str(err)}
+            )
+            return None
 
     def _issue_id(self, key: str) -> str:
         """Repairs issue id for a degraded-section key ('section|student')."""
@@ -491,6 +526,34 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         items.sort(key=lambda t: t[0])
         return [shaped for _, shaped in items]
+
+    def _shape_news(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Turn School News rows into recent-first announcement dicts.
+
+        Each row carries ``ID``, ``Title``, ``Day`` (MM/DD/YY) and ``UnixTime``.
+        We key ordering off ``UnixTime`` (the authoritative epoch) and expose an
+        ISO ``published`` timestamp; the list is newest-first and capped so the
+        sensor's attributes stay small.
+        """
+        items: list[tuple[int, dict[str, Any]]] = []
+        for row in raw or []:
+            title = (row.get("Title") or "").strip()
+            if not title:
+                continue
+            ts = to_float(row.get("UnixTime"))
+            published = (
+                dt_util.utc_from_timestamp(ts).isoformat()
+                if ts is not None
+                else None
+            )
+            items.append(
+                (
+                    int(ts) if ts is not None else 0,
+                    {"id": row.get("ID"), "title": title, "published": published},
+                )
+            )
+        items.sort(key=lambda t: t[0], reverse=True)
+        return [shaped for _, shaped in items[:_MAX_NEWS_ITEMS]]
 
     def _shape_cafeteria(self, raw: dict[str, Any]) -> list[dict[str, Any]]:
         """Turn the ``{MM/DD/YYYY: [meals]}`` payload into sorted per-day menus.

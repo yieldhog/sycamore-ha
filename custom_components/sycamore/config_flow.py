@@ -41,6 +41,7 @@ from .const import (
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
     CONF_ENABLE_LUNCH,
+    CONF_ENABLE_NEWS,
     CONF_FAMILY_ID,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
@@ -55,6 +56,7 @@ from .const import (
     DEFAULT_ENABLE_DISCIPLINE,
     DEFAULT_ENABLE_EVENTS,
     DEFAULT_ENABLE_LUNCH,
+    DEFAULT_ENABLE_NEWS,
     DEFAULT_FOCUS_WINDOW_DAYS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
     DOMAIN,
@@ -489,6 +491,10 @@ class SycamoreOptionsFlow(OptionsFlow):
             vol.Optional(
                 CONF_ENABLE_EVENTS,
                 default=current.get(CONF_ENABLE_EVENTS, DEFAULT_ENABLE_EVENTS),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_NEWS,
+                default=current.get(CONF_ENABLE_NEWS, DEFAULT_ENABLE_NEWS),
             ): bool,
             vol.Optional(
                 CONF_CALENDAR_AUTOSYNC,
