@@ -487,7 +487,8 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _shape_details(self, raw: dict[str, Any]) -> dict[str, Any]:
         # Static-ish profile info that enriches the device. Only the safe,
-        # useful fields — no PII (DOB, gender, IDs) or the locker combo.
+        # non-identifying fields — no PII (DOB, gender, IDs) and no locker number
+        # (kept out of diagnostics).
         if not raw:
             return {}
         return {
