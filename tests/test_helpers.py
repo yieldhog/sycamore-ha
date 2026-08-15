@@ -106,6 +106,8 @@ def test_strip_html():
 
 def test_parse_due_date():
     assert parse_due_date("01/15/2026") == date(2026, 1, 15)
+    # Official homework/missing examples use two-digit years (MM/DD/YY).
+    assert parse_due_date("01/31/13") == date(2013, 1, 31)
     assert parse_due_date("garbage") is None
     assert parse_due_date(None) is None
 

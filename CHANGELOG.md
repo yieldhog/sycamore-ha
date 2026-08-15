@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] - 2026-08-15
+
+### Fixed
+
+- **Two-digit due dates no longer drop assignments.** Sycamore's docs (and some
+  live responses) return homework/missing due dates as `MM/DD/YY`, while other
+  endpoints use `MM/DD/YYYY`. The parser previously accepted only the 4-digit
+  form, so 2-digit dates were treated as invalid and those items silently
+  vanished from calendars and sensors. Both formats are now accepted.
+
+### Changed
+
+- **Locker number removed from student details.** The shaped profile no longer
+  includes the locker number, keeping the diagnostics dump non-identifying. It
+  was never exposed as a sensor, so no entities change.
+
 ## [0.1.16] - 2026-08-15
 
 ### Added
