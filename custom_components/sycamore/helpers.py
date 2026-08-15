@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, timedelta
+from datetime import time as dtime
 
 # --- Subject name cleanup (ported from app/main.py: clean_subject_name) ---
 # Ordered so the "<Nth> Grade-" prefix is tried before the "6H " section prefix:
@@ -49,21 +50,44 @@ def collapse_ws(text: str | None) -> str:
 
 # --- Test/quiz inference (ported from app/trmnl.py: detect_kind) ---
 # Whole-word cues matched on boundaries so "final draft"/"contest" don't trip.
-_TEST_KINDS: list[tuple[str, str]] = [
+# Strong cues classify unconditionally; the weak cue ("assessment") only counts
+# when the item doesn't otherwise read as ordinary work — teachers routinely
+# assign "assessment questions" for homework, which should not become a test.
+_STRONG_TEST_KINDS: list[tuple[str, str]] = [
     (r"midterm", "Test"),
     (r"final exam", "Test"),
     (r"finals", "Test"),
     (r"exam", "Test"),
     (r"test", "Test"),
-    (r"assessment", "Test"),
     (r"quiz(?:zes)?", "Quiz"),
 ]
+_WEAK_TEST_KINDS: list[tuple[str, str]] = [
+    (r"assessment", "Test"),
+]
+# Presence of any of these (in the title or description) marks an item as
+# ordinary work, vetoing a weak cue like "assessment".
+_HOMEWORK_INDICATORS = re.compile(
+    r"\b(questions?|worksheets?|packets?|reviews?|study guide|notes?|reading|read|homework)\b",
+    re.IGNORECASE,
+)
 
 
-def detect_kind(title: str | None) -> tuple[bool, str]:
-    """Return (is_test, label) inferring test/quiz from an assignment title."""
+def detect_kind(
+    title: str | None, description: str | None = None
+) -> tuple[bool, str]:
+    """Return (is_test, label) inferring test/quiz from an assignment.
+
+    Strong cues (test/exam/quiz/midterm/finals) always classify.  The weaker
+    ``assessment`` cue is suppressed when the title or description shows the
+    item is ordinary work (e.g. "assessment *questions* due for homework").
+    """
     low = (title or "").lower()
-    for pattern, label in _TEST_KINDS:
+    for pattern, label in _STRONG_TEST_KINDS:
+        if re.search(rf"\b{pattern}\b", low):
+            return True, label
+    if _HOMEWORK_INDICATORS.search(f"{title or ''} {description or ''}"):
+        return False, ""
+    for pattern, label in _WEAK_TEST_KINDS:
         if re.search(rf"\b{pattern}\b", low):
             return True, label
     return False, ""
@@ -129,6 +153,22 @@ def to_float(value: object) -> float | None:
         return float(value)  # type: ignore[arg-type]
     except (ValueError, TypeError):
         return None
+
+
+def parse_clock_time(raw: str | None) -> dtime | None:
+    """Parse an 'HH:MM' or 'HH:MM:SS' time-of-day option, else None.
+
+    Used for the optional due-time that turns all-day homework/test events into
+    timed ones. An empty/absent/malformed value returns None (= keep all-day).
+    """
+    if not raw:
+        return None
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(raw, fmt).time()
+        except (ValueError, TypeError):
+            continue
+    return None
 
 
 def parse_event_time(

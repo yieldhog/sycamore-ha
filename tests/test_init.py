@@ -574,6 +574,103 @@ async def test_persistent_degraded_raises_and_clears_repair(hass: HomeAssistant)
         assert reg.async_get_issue(DOMAIN, issue_id) is None
 
 
+class EventsNotFoundClient(FakeClient):
+    """The school has no Events endpoint (404) — a permanent 'not available'."""
+
+    async def async_get_events(self, school_id):
+        from custom_components.sycamore.api import SycamoreApiError
+
+        raise SycamoreApiError(
+            f"School/{school_id}/Events returned HTTP 404", status_code=404
+        )
+
+
+async def test_events_404_is_quiet_no_repair(hass: HomeAssistant):
+    """A 404 on Events is treated as 'no events' — never degraded or repaired."""
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", EventsNotFoundClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = entry.runtime_data
+        # More polls than the degrade threshold — still no repair for a 404.
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert not any(d["section"] == "events" for d in coordinator.degraded)
+    reg = ir.async_get(hass)
+    issue_id = f"{entry.entry_id}_degraded_events|School"
+    assert reg.async_get_issue(DOMAIN, issue_id) is None
+    # Treated as an empty calendar (not left unset), so it reads as "no events".
+    assert coordinator.data["school_events"] == []
+
+
+async def test_homework_event_time_makes_timed_events(hass: HomeAssistant):
+    """With an event_time option, homework events are timed, not all-day."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7,
+                 "event_time": "08:00:00"},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    cal_eid = reg.async_get_entity_id("calendar", DOMAIN, f"{entry.entry_id}_111_homework")
+    assert cal_eid
+    res = await hass.services.async_call(
+        "calendar",
+        "get_events",
+        {
+            "entity_id": cal_eid,
+            "start_date_time": (dt_util.now() - timedelta(days=1)).isoformat(),
+            "end_date_time": (dt_util.now() + timedelta(days=3)).isoformat(),
+        },
+        blocking=True,
+        return_response=True,
+    )
+    events = res[cal_eid]["events"]
+    assert events
+    # Timed (has a 'T' and the 08:00 hour), not an all-day 'YYYY-MM-DD' start.
+    assert "T08:00:00" in events[0]["start"]
+
+
+def test_event_dates_helper_allday_vs_timed():
+    """_event_dates emits all-day fields with no time, timed fields with one."""
+    from datetime import date, time
+
+    from custom_components.sycamore.services import _event_dates
+
+    allday = _event_dates(date(2026, 8, 20), None)
+    assert set(allday) == {"start_date", "end_date"}
+    assert allday["start_date"] == "2026-08-20"
+
+    timed = _event_dates(date(2026, 8, 20), time(8, 0))
+    assert set(timed) == {"start_date_time", "end_date_time"}
+    assert "2026-08-20T08:00:00" in timed["start_date_time"]
+
+
 class NoAttendanceClient(FakeClient):
     """Fails if attendance is fetched, proving the toggle skips the call."""
 

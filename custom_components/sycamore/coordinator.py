@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import date, datetime, timedelta
+from datetime import time as dtime
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +23,7 @@ from .api import (
 )
 from .const import (
     CONF_CALENDAR_TARGETS,
+    CONF_EVENT_TIME,
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
@@ -53,6 +55,7 @@ from .helpers import (
     clean_subject_name,
     collapse_ws,
     detect_kind,
+    parse_clock_time,
     parse_due_date,
     parse_event_time,
     strip_html,
@@ -150,6 +153,14 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self._events_enabled
 
     @property
+    def event_time(self) -> dtime | None:
+        """Optional time-of-day for homework/test events; None = all-day.
+
+        Read live from options so a change takes effect on reload.
+        """
+        return parse_clock_time(self.entry.options.get(CONF_EVENT_TIME))
+
+    @property
     def calendar_targets(self) -> dict[str, str]:
         """Map of student_id -> writable calendar entity to sync into.
 
@@ -182,6 +193,24 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                 except SycamoreAuthError:
                     raise
+                except SycamoreApiError as err:
+                    # A 404 means this school simply doesn't expose the Events
+                    # endpoint — a permanent "feature not available", not a
+                    # degradation. Treat it as an empty calendar and stay quiet
+                    # so it doesn't raise a Repairs issue that can never clear.
+                    if err.status_code == 404:
+                        _LOGGER.debug(
+                            "School %s has no Events endpoint (404); "
+                            "treating as empty",
+                            self._school_id,
+                        )
+                        events = []
+                    else:
+                        _LOGGER.debug("School events fetch failed; leaving unset")
+                        self.degraded.append(
+                            {"student": "School", "section": "events",
+                             "error": str(err)}
+                        )
                 except SycamoreConnectionError as err:
                     _LOGGER.debug("School events fetch failed; leaving unset")
                     self.degraded.append(
@@ -376,7 +405,8 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             title = (hw.get("Title") or "").strip()
             subject = clean_subject_name(hw.get("ClassName", ""))
-            is_test, kind = detect_kind(title)
+            description = strip_html(hw.get("Description"))
+            is_test, kind = detect_kind(title, description)
             out.append(
                 {
                     "title": title,
@@ -384,7 +414,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "due": due,
                     "is_test": is_test,
                     "kind": kind,
-                    "description": strip_html(hw.get("Description")),
+                    "description": description,
                     "in_focus": today <= due <= horizon,
                     "icon": subject_icon(subject),
                 }

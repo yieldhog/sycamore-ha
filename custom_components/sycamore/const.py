@@ -29,6 +29,11 @@ CONF_ENABLE_EVENTS = "events_enabled"
 CONF_CALENDAR_TARGETS = "calendar_targets"  # {student_id: calendar_entity_id}
 CONF_CALENDAR_AUTOSYNC = "calendar_autosync"
 CONF_CALENDAR_DAYS = "calendar_days"
+# Optional time-of-day ('HH:MM:SS') that turns all-day homework/test events into
+# timed ones starting at that hour on the due date. Unset/blank = all-day.
+CONF_EVENT_TIME = "event_time"
+# How long a timed due-date event lasts (a short marker block).
+DEFAULT_EVENT_DURATION_MINUTES = 30
 
 # Defaults
 DEFAULT_SCAN_INTERVAL_MINUTES = 60

@@ -72,7 +72,8 @@
           "discipline_enabled": "Discipline log sensor",
           "events_enabled": "School events calendar",
           "calendar_autosync": "Auto-sync calendars after each refresh",
-          "calendar_days": "Calendar sync window (days ahead)"
+          "calendar_days": "Calendar sync window (days ahead)",
+          "event_time": "Event time (leave blank for all-day)"
         },
         "data_description": {
           "scan_interval_minutes": "How often to poll Sycamore. Minimum 60 minutes (Sycamore data changes at most daily).",
@@ -82,7 +83,8 @@
           "discipline_enabled": "When on, the discipline log is polled and a per-student discipline-events sensor is added. Off by default.",
           "events_enabled": "When on (and a School ID is set), the school calendar is polled and added as a 'School events' calendar plus a 'Next school event' sensor.",
           "calendar_autosync": "When on, each child with a target calendar is synced automatically after every poll. When off, use the sycamore.sync_calendar service manually.",
-          "calendar_days": "How many days ahead of assignments/tests to put on the calendar."
+          "calendar_days": "How many days ahead of assignments/tests to put on the calendar.",
+          "event_time": "Blank = all-day events. Set a time (e.g. 08:00) to make homework/test events timed at that hour on the due date. For a reminder at a fixed time the day before, set your Google calendar's default notification to the matching offset — e.g. an 8:00 due-time with a 3:00 PM prior-day reminder is 17 hours before."
         }
       }
     }

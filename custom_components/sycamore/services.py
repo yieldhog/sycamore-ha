@@ -23,7 +23,8 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dtime
 from typing import Any
 
 import voluptuous as vol
@@ -44,6 +45,7 @@ from .const import (
     CONF_CALENDAR_TARGETS,
     DATA_HOMEWORK,
     DEFAULT_CALENDAR_DAYS,
+    DEFAULT_EVENT_DURATION_MINUTES,
     DOMAIN,
 )
 
@@ -83,6 +85,28 @@ def _summary(name: str, hw: dict[str, Any], prefix_name: bool) -> str:
     kind = f"[{hw['kind'].upper()}] " if hw["is_test"] and hw["kind"] else ""
     label = f"{kind}{hw['title']}"
     return (f"{name}: {label}" if prefix_name else label)[:255]
+
+
+def _event_dates(due: date, event_time: dtime | None) -> dict[str, str]:
+    """Build the create_event date fields for a due date.
+
+    With no ``event_time`` the event is all-day (``start_date``/``end_date``);
+    with one it becomes a short timed block at that hour on the due date
+    (``start_date_time``/``end_date_time``), which is what lets a Google
+    calendar's relative default reminder fire at a fixed time the day before.
+    """
+    if event_time is None:
+        return {
+            "start_date": due.isoformat(),
+            "end_date": (due + timedelta(days=1)).isoformat(),
+        }
+    tz = dt_util.now().tzinfo
+    start = datetime.combine(due, event_time, tzinfo=tz)
+    end = start + timedelta(minutes=DEFAULT_EVENT_DURATION_MINUTES)
+    return {
+        "start_date_time": start.isoformat(),
+        "end_date_time": end.isoformat(),
+    }
 
 
 def _description(hw: dict[str, Any], student_id: str, item_hash: str) -> str:
@@ -161,6 +185,12 @@ async def _reconcile_calendar(
         _LOGGER.warning("sycamore.sync_calendar: %s cannot have events added", target)
         return None
     can_delete = bool(entity.supported_features & CalendarEntityFeature.DELETE_EVENT)
+    # A configured due-time makes synced events timed (at that hour on the due
+    # date) instead of all-day; taken from any pair's coordinator (all share the
+    # entry). None = keep all-day.
+    event_time = next(
+        (c.event_time for c, _ in pairs if c is not None), None
+    )
 
     # Desired: {(student_id, item_hash): (student_name, homework)} in the window.
     desired: dict[tuple[str, str], tuple[str, dict[str, Any]]] = {}
@@ -189,6 +219,7 @@ async def _reconcile_calendar(
     for (sid, item_hash), (name, hw) in desired.items():
         if (sid, item_hash) in existing_keys:
             continue
+        event_fields = _event_dates(hw["due"], event_time)
         await hass.services.async_call(
             "calendar",
             "create_event",
@@ -196,8 +227,7 @@ async def _reconcile_calendar(
                 "entity_id": target,
                 "summary": _summary(name, hw, prefix),
                 "description": _description(hw, sid, item_hash),
-                "start_date": hw["due"].isoformat(),
-                "end_date": (hw["due"] + timedelta(days=1)).isoformat(),
+                **event_fields,
             },
             blocking=True,
         )

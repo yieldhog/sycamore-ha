@@ -23,6 +23,7 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TimeSelector,
 )
 
 from .api import (
@@ -35,6 +36,7 @@ from .const import (
     CONF_CALENDAR_AUTOSYNC,
     CONF_CALENDAR_DAYS,
     CONF_CALENDAR_TARGETS,
+    CONF_EVENT_TIME,
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
@@ -506,6 +508,12 @@ class SycamoreOptionsFlow(OptionsFlow):
                     mode=NumberSelectorMode.BOX,
                 )
             ),
+            # Blank = all-day events (default). Set a time to make homework/test
+            # events timed at that hour on the due date.
+            vol.Optional(
+                CONF_EVENT_TIME,
+                description={"suggested_value": current.get(CONF_EVENT_TIME)},
+            ): TimeSelector(),
         }
         # One optional calendar picker per student (blank = don't sync).
         calendar_selector = _calendar_selector(self.hass)

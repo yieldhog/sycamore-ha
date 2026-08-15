@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.15] - 2026-08-15
+
+### Added
+
+- **Timed homework/test events (optional).** A new "Event time" option turns the
+  all-day homework and test calendar events into timed events at a chosen hour on
+  the due date (e.g. 8:00 AM) — applied both to the built-in calendars and to
+  events synced into an external calendar. Leave it blank to keep all-day events.
+  Because Google Calendar reminders are relative to a fixed event time, you can
+  then get a notification at a fixed time the day before by setting that
+  calendar's default reminder offset (an 8:00 AM due-time with a 3:00 PM
+  prior-day reminder is "17 hours before"); the option help spells this out.
+
+### Changed
+
+- **Smarter test detection.** Titles like "… Assessment questions 1-4" are no
+  longer miscategorized as tests. The `assessment` cue is now suppressed when the
+  title or description reads as ordinary work (contains "questions", "worksheet",
+  "packet", "review", "study guide", "notes", or "reading"); strong cues
+  (test/exam/quiz/midterm/finals) still always classify.
+
+### Fixed
+
+- **No more false "degraded" alert for schools without an events feed.** When a
+  school's Events endpoint returns HTTP 404 (the endpoint isn't available for
+  that school), the integration now treats it as simply having no events instead
+  of repeatedly flagging it as a degraded section and raising a Repairs issue
+  that could never clear. Transient errors (500/timeout) still degrade as before.
+
 ## [0.1.14] - 2026-08-14
 
 ### Added
