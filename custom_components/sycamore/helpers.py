@@ -138,13 +138,20 @@ def subject_icon(name: str | None) -> str:
 
 
 def parse_due_date(raw: str | None) -> date | None:
-    """Parse Sycamore's 'MM/DD/YYYY' due date, tolerating bad/empty values."""
+    """Parse Sycamore due dates, tolerating bad/empty values.
+
+    The API docs show homework/missing due dates as ``MM/DD/YY`` while other
+    endpoints (and newer live responses) use ``MM/DD/YYYY``. Accept both so
+    documented two-digit years do not disappear from calendars and sensors.
+    """
     if not raw:
         return None
-    try:
-        return datetime.strptime(raw, "%m/%d/%Y").date()
-    except (ValueError, TypeError):
-        return None
+    for fmt in ("%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except (ValueError, TypeError):
+            continue
+    return None
 
 
 def to_float(value: object) -> float | None:

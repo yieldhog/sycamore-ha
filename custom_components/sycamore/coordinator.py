@@ -494,7 +494,6 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "grade": (raw.get("Grade") or "").strip() or None,
             "homeroom_teacher": (raw.get("HomeroomTeacher") or "").strip() or None,
             "advisor": (raw.get("Advisor") or "").strip() or None,
-            "locker": (raw.get("LockerNum") or "").strip() or None,
         }
 
     def _shape_school_events(
