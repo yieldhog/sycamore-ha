@@ -10,7 +10,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import SycamoreConfigEntry
-from .const import DATA_CAFETERIA, DATA_HOMEWORK, DATA_SCHOOL_EVENTS
+from .const import (
+    DATA_CAFETERIA,
+    DATA_HOMEWORK,
+    DATA_SCHOOL_EVENTS,
+    DEFAULT_EVENT_DURATION_MINUTES,
+)
 from .entity import SycamoreSchoolEntity, SycamoreStudentEntity
 
 # Read-only, coordinator-driven entities: no per-entity polling to serialize.
@@ -60,12 +65,24 @@ class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
 
     def _events(self) -> list[CalendarEvent]:
         events: list[CalendarEvent] = []
+        # When a due-time is configured, emit timed events at that hour on the
+        # due date; otherwise keep the classic all-day event.
+        event_time = self.coordinator.event_time
+        tz = dt_util.now().tzinfo
         for hw in self.student_data.get(DATA_HOMEWORK, []):
             due: date = hw["due"]
+            start: date | datetime
+            end: date | datetime
+            if event_time is None:
+                start = due
+                end = due + timedelta(days=1)
+            else:
+                start = datetime.combine(due, event_time, tzinfo=tz)
+                end = start + timedelta(minutes=DEFAULT_EVENT_DURATION_MINUTES)
             events.append(
                 CalendarEvent(
-                    start=due,
-                    end=due + timedelta(days=1),
+                    start=start,
+                    end=end,
                     summary=_summary(hw),
                     description=hw["description"] or None,
                     location=hw["subject"] or None,
@@ -76,9 +93,10 @@ class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         """The next upcoming assignment."""
-        today = dt_util.now().date()
+        now = dt_util.now()
         upcoming = sorted(
-            (e for e in self._events() if e.end > today), key=lambda e: e.start
+            (e for e in self._events() if _as_aware(e.end, now.tzinfo) > now),
+            key=lambda e: _as_aware(e.start, now.tzinfo),
         )
         return upcoming[0] if upcoming else None
 
@@ -86,9 +104,12 @@ class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         """Return events intersecting the requested range."""
-        start = start_date.date()
-        end = end_date.date()
-        return [e for e in self._events() if e.start < end and e.end > start]
+        tz = start_date.tzinfo
+        return [
+            e
+            for e in self._events()
+            if _as_aware(e.start, tz) < end_date and _as_aware(e.end, tz) > start_date
+        ]
 
 
 class SycamoreLunchCalendar(SycamoreSchoolEntity, CalendarEntity):

@@ -64,10 +64,37 @@ def test_clean_subject_name(raw, expected):
         ("final draft", False, ""),  # "final" alone is not a cue
         ("contest entry", False, ""),  # "test" must be a whole word
         ("Reading log", False, ""),
+        ("Unit 3 Assessment", True, "Test"),  # bare assessment => test
+        # "assessment" downgraded when a homework word is present.
+        ("HIS Chap 11 Lesson 1 Assessment questions 1-4", False, ""),
+        ("Chapter 2 Assessment worksheet", False, ""),
+        ("Exam review questions", True, "Test"),  # strong cue still wins
     ],
 )
 def test_detect_kind(title, is_test, label):
     assert detect_kind(title) == (is_test, label)
+
+
+def test_parse_clock_time():
+    from datetime import time
+
+    from custom_components.sycamore.helpers import parse_clock_time
+
+    assert parse_clock_time("08:00:00") == time(8, 0)
+    assert parse_clock_time("08:00") == time(8, 0)
+    assert parse_clock_time(None) is None
+    assert parse_clock_time("") is None
+    assert parse_clock_time("not-a-time") is None
+
+
+def test_detect_kind_description_suppresses_assessment():
+    """A homework word in the description also vetoes the weak 'assessment' cue."""
+    assert detect_kind("Unit 3 Assessment", "These questions are due for homework") == (
+        False,
+        "",
+    )
+    # Without the homework context, the same title is a test.
+    assert detect_kind("Unit 3 Assessment", "Bring a pencil") == (True, "Test")
 
 
 def test_strip_html():

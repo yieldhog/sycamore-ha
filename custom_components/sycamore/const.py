@@ -23,12 +23,18 @@ CONF_ENABLE_ATTENDANCE = "attendance_enabled"
 CONF_ENABLE_LUNCH = "lunch_enabled"
 CONF_ENABLE_DISCIPLINE = "discipline_enabled"
 CONF_ENABLE_EVENTS = "events_enabled"
+CONF_ENABLE_NEWS = "news_enabled"
 
 # Calendar sync (options). Per-student target calendar entities, plus an opt-in
 # auto-sync that reconciles after each refresh. Empty/unset target = no sync.
 CONF_CALENDAR_TARGETS = "calendar_targets"  # {student_id: calendar_entity_id}
 CONF_CALENDAR_AUTOSYNC = "calendar_autosync"
 CONF_CALENDAR_DAYS = "calendar_days"
+# Optional time-of-day ('HH:MM:SS') that turns all-day homework/test events into
+# timed ones starting at that hour on the due date. Unset/blank = all-day.
+CONF_EVENT_TIME = "event_time"
+# How long a timed due-date event lasts (a short marker block).
+DEFAULT_EVENT_DURATION_MINUTES = 30
 
 # Defaults
 DEFAULT_SCAN_INTERVAL_MINUTES = 60
@@ -40,6 +46,8 @@ DEFAULT_ENABLE_LUNCH = True
 DEFAULT_ENABLE_DISCIPLINE = False
 # School events (needs a School ID, like lunch); on by default when one is set.
 DEFAULT_ENABLE_EVENTS = True
+# School news/announcements (needs a School ID); on by default when one is set.
+DEFAULT_ENABLE_NEWS = True
 DEFAULT_CALENDAR_AUTOSYNC = False
 DEFAULT_CALENDAR_DAYS = 14
 
@@ -57,3 +65,4 @@ DATA_DETAILS = "details"
 # Top-level (school) keys in coordinator data.
 DATA_CAFETERIA = "cafeteria"
 DATA_SCHOOL_EVENTS = "school_events"
+DATA_NEWS = "news"

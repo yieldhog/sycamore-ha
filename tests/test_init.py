@@ -61,6 +61,14 @@ class FakeClient:
              "Day": "08/14/26", "Start": "16:00", "Duration": "00:45", "AllDay": 0},
         ]
 
+    async def async_get_news(self, school_id):
+        return [
+            {"ID": 2033346, "Title": "GS July Update 2026",
+             "Day": "07/19/26", "UnixTime": 1784502000},
+            {"ID": 2032670, "Title": "GS Weekly News 5/24/26",
+             "Day": "05/26/26", "UnixTime": 1779819960},
+        ]
+
     async def async_get_cafeteria(self, school_id):
         return []
 
@@ -572,6 +580,199 @@ async def test_persistent_degraded_raises_and_clears_repair(hass: HomeAssistant)
             await coordinator.async_refresh()
             await hass.async_block_till_done()
         assert reg.async_get_issue(DOMAIN, issue_id) is None
+
+
+class EventsNotFoundClient(FakeClient):
+    """The school has no Events endpoint (404) — a permanent 'not available'."""
+
+    async def async_get_events(self, school_id):
+        from custom_components.sycamore.api import SycamoreApiError
+
+        raise SycamoreApiError(
+            f"School/{school_id}/Events returned HTTP 404", status_code=404
+        )
+
+
+async def test_events_404_is_quiet_no_repair(hass: HomeAssistant):
+    """A 404 on Events is treated as 'no events' — never degraded or repaired."""
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", EventsNotFoundClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = entry.runtime_data
+        # More polls than the degrade threshold — still no repair for a 404.
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert not any(d["section"] == "events" for d in coordinator.degraded)
+    reg = ir.async_get(hass)
+    issue_id = f"{entry.entry_id}_degraded_events|School"
+    assert reg.async_get_issue(DOMAIN, issue_id) is None
+    # Treated as an empty calendar (not left unset), so it reads as "no events".
+    assert coordinator.data["school_events"] == []
+
+
+async def test_news_sensor_populated(hass: HomeAssistant):
+    """The News endpoint drives a school-level 'Latest news' sensor."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    eid = reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_latest_news")
+    assert eid
+    state = hass.states.get(eid)
+    # Newest-first: the July item wins over the May one.
+    assert state.state == "GS July Update 2026"
+    assert state.attributes["count"] == 2
+    assert state.attributes["items"][0]["title"] == "GS July Update 2026"
+    assert state.attributes["items"][0]["published"] is not None
+
+
+class NewsNotFoundClient(FakeClient):
+    """The school has no News endpoint (404)."""
+
+    async def async_get_news(self, school_id):
+        from custom_components.sycamore.api import SycamoreApiError
+
+        raise SycamoreApiError(
+            f"School/{school_id}/News returned HTTP 404", status_code=404
+        )
+
+
+async def test_news_404_reads_no_news_quietly(hass: HomeAssistant):
+    """A 404 on News shows 'No news' and never degrades/repairs."""
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", NewsNotFoundClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    eid = reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_latest_news")
+    assert hass.states.get(eid).state == "No news"
+    coordinator = entry.runtime_data
+    assert not any(d["section"] == "news" for d in coordinator.degraded)
+    issue_id = f"{entry.entry_id}_degraded_news|School"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+class NewsDisabledClient(FakeClient):
+    """Fails if news is fetched, proving the toggle skips the call."""
+
+    async def async_get_news(self, school_id):
+        raise AssertionError("news must not be fetched when disabled")
+
+
+async def test_news_disabled_skips_fetch(hass: HomeAssistant):
+    """With news off, the endpoint isn't polled and no sensor is created."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": "1642",
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "news_enabled": False},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", NewsDisabledClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    reg = er.async_get(hass)
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_latest_news") is None
+
+
+async def test_homework_event_time_makes_timed_events(hass: HomeAssistant):
+    """With an event_time option, homework events are timed, not all-day."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 60, "focus_window_days": 7,
+                 "event_time": "08:00:00"},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    cal_eid = reg.async_get_entity_id("calendar", DOMAIN, f"{entry.entry_id}_111_homework")
+    assert cal_eid
+    res = await hass.services.async_call(
+        "calendar",
+        "get_events",
+        {
+            "entity_id": cal_eid,
+            "start_date_time": (dt_util.now() - timedelta(days=1)).isoformat(),
+            "end_date_time": (dt_util.now() + timedelta(days=3)).isoformat(),
+        },
+        blocking=True,
+        return_response=True,
+    )
+    events = res[cal_eid]["events"]
+    assert events
+    # Timed (has a 'T' and the 08:00 hour), not an all-day 'YYYY-MM-DD' start.
+    assert "T08:00:00" in events[0]["start"]
+
+
+def test_event_dates_helper_allday_vs_timed():
+    """_event_dates emits all-day fields with no time, timed fields with one."""
+    from datetime import date, time
+
+    from custom_components.sycamore.services import _event_dates
+
+    allday = _event_dates(date(2026, 8, 20), None)
+    assert set(allday) == {"start_date", "end_date"}
+    assert allday["start_date"] == "2026-08-20"
+
+    timed = _event_dates(date(2026, 8, 20), time(8, 0))
+    assert set(timed) == {"start_date_time", "end_date_time"}
+    assert "2026-08-20T08:00:00" in timed["start_date_time"]
 
 
 class NoAttendanceClient(FakeClient):
