@@ -125,6 +125,13 @@ async def test_count_and_binary_entities(hass: HomeAssistant):
     assert upcoming.attributes["assignments"][0]["is_test"] is True
     assert upcoming.attributes["assignments"][0]["kind"] == "Quiz"
     assert upcoming.attributes["assignments"][0]["subject"] == "Mathematics"
+    assert upcoming.attributes["assignments"][0]["description"] == "Study"
+
+    # Missing work: bare titles kept for compat; `items` adds subject/due/desc.
+    missing = hass.states.get("sensor.jane_missing_work")
+    assert missing.attributes["assignments"] == ["Worksheet 5"]
+    assert missing.attributes["items"][0]["title"] == "Worksheet 5"
+    assert missing.attributes["items"][0]["subject"] == "Mathematics"
 
     tests = hass.states.get("sensor.jane_upcoming_tests")
     assert tests.state == "1"
@@ -510,6 +517,31 @@ async def test_missing_without_title_still_counts(hass: HomeAssistant):
     # Falls back to the description text as the label.
     missing = hass.states.get("sensor.jane_missing_work")
     assert missing.attributes["assignments"] == ["Lab writeup"]
+    assert missing.attributes["items"][0]["subject"] == "Science"
+    assert missing.attributes["items"][0]["description"] == "Lab writeup"
+
+
+class DatedMissingClient(FakeClient):
+    """A missing item carrying a DueDate, to verify ISO normalization."""
+
+    async def async_get_missing(self, student_id):
+        return [
+            {"Title": "Essay", "ClassName": "6H English",
+             "DueDate": "09/21/2026", "Description": "<p>Draft</p>"},
+        ]
+
+
+async def test_missing_due_normalized_to_iso(hass: HomeAssistant):
+    """A missing item's raw MM/DD/YYYY DueDate is exposed as an ISO date."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", DatedMissingClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    item = hass.states.get("sensor.jane_missing_work").attributes["items"][0]
+    assert item["due"] == "2026-09-21"
+    assert item["description"] == "Draft"
 
 
 class HomeworkErrorClient(FakeClient):

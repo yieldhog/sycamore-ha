@@ -33,9 +33,20 @@ from .entity import (
     SycamoreServiceEntity,
     SycamoreStudentEntity,
 )
+from .helpers import parse_due_date
 
 # Read-only, coordinator-driven entities: no per-entity polling to serialize.
 PARALLEL_UPDATES = 0
+
+
+def _due_iso(raw: object) -> str | None:
+    """Normalize a missing item's raw Sycamore ``DueDate`` to an ISO date.
+
+    Missing items keep the raw ``MM/DD/YYYY`` string (or ``None``); this matches
+    the Upcoming sensor's ISO ``due`` so both attributes share one format.
+    """
+    parsed = parse_due_date(raw if isinstance(raw, str) else None)
+    return parsed.isoformat() if parsed else None
 
 
 async def async_setup_entry(
@@ -223,7 +234,20 @@ class SycamoreMissingCountSensor(_StudentCountSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         items = self.student_data.get(DATA_MISSING, [])
-        return {"assignments": [i["title"] for i in items]}
+        return {
+            # `assignments` stays a bare title list for backward compatibility;
+            # `items` adds subject/due/description for richer cards & dashboards.
+            "assignments": [i["title"] for i in items],
+            "items": [
+                {
+                    "title": i["title"],
+                    "subject": i["subject"],
+                    "due": _due_iso(i.get("due")),
+                    "description": i["description"],
+                }
+                for i in items
+            ],
+        }
 
 
 class SycamoreUpcomingCountSensor(_StudentCountSensor):
@@ -251,6 +275,7 @@ class SycamoreUpcomingCountSensor(_StudentCountSensor):
                     "due": i["due"].isoformat(),
                     "is_test": i["is_test"],
                     "kind": i["kind"],
+                    "description": i["description"],
                 }
                 for i in items
             ]
