@@ -106,11 +106,18 @@ class SycamoreLunchCalendar(SycamoreSchoolEntity, CalendarEntity):
         for day in (self.coordinator.data or {}).get(DATA_CAFETERIA) or []:
             due: date = day["date"]
             meals = day["meals"]
-            summary = ", ".join(m["name"] for m in meals)
-            description = "\n".join(
-                f"{m['name']}: {m['description']}" if m["description"] else m["name"]
-                for m in meals
-            )
+            names = [m["name"] for m in meals]
+            summary = ", ".join(names)
+            # Lead with a bare, scannable list of the day's options, then the
+            # per-option ingredient detail below a divider.  When no option has
+            # a description there is nothing to detail, so just list the names.
+            details = [
+                f"{m['name']}: {m['description']}" for m in meals if m["description"]
+            ]
+            if details:
+                description = "\n".join([*names, "─────", *details])
+            else:
+                description = "\n".join(names)
             events.append(
                 CalendarEvent(
                     start=due,

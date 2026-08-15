@@ -412,12 +412,37 @@ async def test_lunch_sensor_and_calendar(hass: HomeAssistant):
     assert lunch.attributes["meals"][0]["description"] == "Cheeseburger, Chips, Ketchup"
     # The full pulled menu (both days) is exposed for calendar/week use.
     assert len(lunch.attributes["menu"]) == 2
+    # Plain option-name list, for easy templating.
+    assert lunch.attributes["options"] == ["Cheeseburger", "Chef Salad"]
 
     cal_eid = reg.async_get_entity_id(
         "calendar", DOMAIN, f"{entry.entry_id}_lunch_calendar"
     )
     assert cal_eid
     assert hass.states.get(cal_eid) is not None
+
+    # The lunch event leads with a bare option list, then a divider, then the
+    # per-option ingredient detail.
+    today = dt_util.now().date()
+    res = await hass.services.async_call(
+        "calendar",
+        "get_events",
+        {
+            "entity_id": cal_eid,
+            "start_date_time": (dt_util.now() - timedelta(days=1)).isoformat(),
+            "end_date_time": (dt_util.now() + timedelta(days=2)).isoformat(),
+        },
+        blocking=True,
+        return_response=True,
+    )
+    events = res[cal_eid]["events"]
+    todays_event = next(e for e in events if e["start"] == today.isoformat())
+    assert todays_event["summary"] == "Cheeseburger, Chef Salad"
+    desc_lines = todays_event["description"].split("\n")
+    assert desc_lines[:2] == ["Cheeseburger", "Chef Salad"]
+    assert "─────" in desc_lines
+    assert "Cheeseburger: Cheeseburger, Chips, Ketchup" in desc_lines
+    assert "Chef Salad: Lettuce, Ham" in desc_lines
 
 
 async def test_calendar_get_events(hass: HomeAssistant):

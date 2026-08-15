@@ -511,10 +511,13 @@ class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        today_meals = self._today_meals()
         return {
+            # Plain list of today's option names, for easy templating.
+            "options": [m["name"] for m in today_meals],
             "meals": [
                 {"name": m["name"], "description": m["description"]}
-                for m in self._today_meals()
+                for m in today_meals
             ],
             "menu": [
                 {
