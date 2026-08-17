@@ -137,6 +137,84 @@ def subject_icon(name: str | None) -> str:
     return "mdi:notebook"
 
 
+# Subject emoji, keyed by the same ordered substrings as ``_SUBJECT_ICONS`` so a
+# subject and its calendar emoji always agree (first substring match wins). These
+# render in calendar summaries where an mdi id can't. Ported/expanded from the
+# original sycamore-dash grade-strip icons.
+_SUBJECT_EMOJI: list[tuple[str, str]] = [
+    ("math", "📐"),
+    ("algebra", "📐"),
+    ("geometry", "📐"),
+    ("calc", "📐"),
+    ("read", "📖"),
+    ("literature", "📖"),
+    ("english", "📚"),
+    ("lang", "📚"),
+    ("spell", "📚"),
+    ("lit", "📖"),
+    ("writ", "✏️"),
+    ("essay", "✏️"),
+    ("scien", "🧪"),
+    ("bio", "🧪"),
+    ("chem", "🧪"),
+    ("physic", "🧪"),
+    ("span", "🌍"),
+    ("french", "🌍"),
+    ("world", "🌍"),
+    ("geog", "🌍"),
+    ("hist", "📜"),
+    ("social", "📜"),
+    ("relig", "⛪"),
+    ("theo", "⛪"),
+    ("bible", "⛪"),
+    ("cathol", "⛪"),
+    ("art", "🎨"),
+    ("music", "🎵"),
+    ("pe", "🏀"),
+    ("physical", "🏀"),
+]
+
+
+def subject_emoji(name: str | None) -> str:
+    """Return a consistent emoji for a subject name (first substring match wins)."""
+    low = (name or "").lower()
+    for key, emoji in _SUBJECT_EMOJI:
+        if key in low:
+            return emoji
+    return "📝"  # generic assignment
+
+
+# A leading class-code acronym: a short all-caps token at the very start of an
+# assignment title (e.g. "HIS" in "HIS Chap 11 Lesson 1"). Followed by any run
+# of spaces/colons/dashes/periods that separates it from the rest of the title.
+_CLASS_CODE_RE = re.compile(r"^([A-Z]{2,5})\b[\s:.\-]*")
+
+
+def humanize_title(title: str | None, subject: str | None) -> str:
+    """Translate a leading class-code acronym in a title to the real class name.
+
+    Sycamore prefixes some assignment titles with a short all-caps class code
+    ("HIS Introduction." for a History class). When that leading token is an
+    acronym of the item's *own* subject — a case-insensitive prefix of it, so an
+    unrelated caps word like "READ" mid-title is never touched — swap the code
+    for the full class name so a calendar reads "History: Introduction." instead
+    of a cryptic "HIS ...". Titles without such a prefix are returned unchanged.
+    """
+    title = (title or "").strip()
+    subject = (subject or "").strip()
+    if not title or not subject:
+        return title
+    match = _CLASS_CODE_RE.match(title)
+    if not match:
+        return title
+    code = match.group(1)
+    # Only translate when the code genuinely abbreviates THIS subject.
+    if not subject.lower().startswith(code.lower()):
+        return title
+    rest = title[match.end():].strip()
+    return f"{subject}: {rest}" if rest else subject
+
+
 def parse_due_date(raw: str | None) -> date | None:
     """Parse Sycamore due dates, tolerating bad/empty values.
 

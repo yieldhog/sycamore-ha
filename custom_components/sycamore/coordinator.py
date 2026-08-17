@@ -58,10 +58,12 @@ from .helpers import (
     clean_subject_name,
     collapse_ws,
     detect_kind,
+    humanize_title,
     parse_clock_time,
     parse_due_date,
     parse_event_time,
     strip_html,
+    subject_emoji,
     subject_icon,
     to_float,
 )
@@ -425,6 +427,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "pdate": g.get("PDate"),
                     "trend": trend,
                     "icon": subject_icon(name),
+                    "emoji": subject_emoji(name),
                 }
             )
         return out
@@ -438,10 +441,13 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             due = parse_due_date(hw.get("DueDate"))
             if due is None:
                 continue
-            title = (hw.get("Title") or "").strip()
+            raw_title = (hw.get("Title") or "").strip()
             subject = clean_subject_name(hw.get("ClassName", ""))
             description = strip_html(hw.get("Description"))
-            is_test, kind = detect_kind(title, description)
+            # Detect the kind from the raw title (before the class code is
+            # translated) so cues aren't hidden behind the subject prefix.
+            is_test, kind = detect_kind(raw_title, description)
+            title = humanize_title(raw_title, subject)
             out.append(
                 {
                     "title": title,
@@ -452,6 +458,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "description": description,
                     "in_focus": today <= due <= horizon,
                     "icon": subject_icon(subject),
+                    "emoji": subject_emoji(subject),
                 }
             )
         out.sort(key=lambda e: (e["due"], e["title"]))
@@ -471,10 +478,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             out.append(
                 {
-                    "title": title,
+                    "title": humanize_title(title, subject),
                     "subject": subject,
                     "due": m.get("DueDate"),
                     "description": description,
+                    "emoji": subject_emoji(subject),
                 }
             )
         return out

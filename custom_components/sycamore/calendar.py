@@ -48,10 +48,12 @@ async def async_setup_entry(
 
 
 def _summary(hw: dict) -> str:
-    """Prefix tests/quizzes so they stand out in calendar views."""
+    """Build the event title: subject emoji, a test/quiz tag, then the title."""
+    emoji = hw.get("emoji")
+    prefix = f"{emoji} " if emoji else ""
     if hw["is_test"] and hw["kind"]:
-        return f"[{hw['kind'].upper()}] {hw['title']}"
-    return hw["title"]
+        return f"{prefix}[{hw['kind'].upper()}] {hw['title']}"
+    return f"{prefix}{hw['title']}"
 
 
 class SycamoreHomeworkCalendar(SycamoreStudentEntity, CalendarEntity):
