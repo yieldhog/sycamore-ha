@@ -10,9 +10,11 @@ from custom_components.sycamore.helpers import (
     clean_subject_name,
     collapse_ws,
     detect_kind,
+    humanize_title,
     parse_due_date,
     parse_event_time,
     strip_html,
+    subject_emoji,
     subject_icon,
     to_float,
 )
@@ -117,6 +119,46 @@ def test_subject_icon():
     assert subject_icon("Science") == "mdi:flask"
     assert subject_icon("Spanish") == "mdi:earth"
     assert subject_icon("Underwater Basket Weaving") == "mdi:notebook"
+
+
+def test_subject_emoji():
+    assert subject_emoji("Mathematics") == "📐"
+    assert subject_emoji("Science") == "🧪"
+    assert subject_emoji("History") == "📜"
+    assert subject_emoji("English") == "📚"
+    assert subject_emoji("Spanish") == "🌍"
+    # Unknown subjects fall back to a generic assignment emoji.
+    assert subject_emoji("Underwater Basket Weaving") == "📝"
+    assert subject_emoji("") == "📝"
+    assert subject_emoji(None) == "📝"
+
+
+@pytest.mark.parametrize(
+    ("title", "subject", "expected"),
+    [
+        # The class code is translated to the real class name.
+        ("HIS Introduction.", "History", "History: Introduction."),
+        (
+            "HIS Chap 11 Lesson 1 Assessment questions 1-4",
+            "History",
+            "History: Chap 11 Lesson 1 Assessment questions 1-4",
+        ),
+        # A caps word that is NOT an acronym of the subject is left alone.
+        ("READ pages 1-10", "History", "READ pages 1-10"),
+        # No leading code at all — unchanged.
+        ("Science Notebook Check Week", "Science", "Science Notebook Check Week"),
+        # Mid-title caps ("READ") must not be touched — only the leading code.
+        ("HIS Chap 11 READ Lesson 1", "History", "History: Chap 11 READ Lesson 1"),
+        # Code-only title collapses to the class name.
+        ("MAT", "Mathematics", "Mathematics"),
+        # Missing subject or title is a safe no-op.
+        ("HIS Introduction.", "", "HIS Introduction."),
+        ("", "History", ""),
+        (None, "History", ""),
+    ],
+)
+def test_humanize_title(title, subject, expected):
+    assert humanize_title(title, subject) == expected
 
 
 def test_to_float():
