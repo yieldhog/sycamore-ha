@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
@@ -163,6 +163,49 @@ async def test_analytics_sensors(hass: HomeAssistant):
     nxt_test = hass.states.get("sensor.jane_next_test")
     assert nxt_test.attributes["title"] == "Chapter 3 Quiz"
     assert nxt_test.attributes["is_test"] is True
+
+
+async def test_next_assignment_anchors_to_end_of_day(hass: HomeAssistant):
+    """With no due-time set, the timestamp lands at the end of the due day.
+
+    Sycamore items have a due date but no time; anchoring to end-of-day keeps a
+    due-today item in the future (rather than reading as this morning/midnight).
+    """
+    await _setup(hass)
+    tomorrow = dt_util.now().date() + timedelta(days=1)
+    expected = (
+        dt_util.start_of_local_day(tomorrow)
+        + timedelta(days=1)
+        - timedelta(seconds=1)
+    )
+    state = hass.states.get("sensor.jane_next_assignment").state
+    assert dt_util.parse_datetime(state) == expected
+
+
+async def test_next_assignment_honors_event_time(hass: HomeAssistant):
+    """A configured due-time places the timestamp at that time on the due day."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"scan_interval_minutes": 30, "focus_window_days": 7,
+                 "event_time": "15:00"},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", FakeClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    tomorrow = dt_util.now().date() + timedelta(days=1)
+    expected = datetime.combine(
+        tomorrow, time(15, 0), tzinfo=dt_util.DEFAULT_TIME_ZONE
+    )
+    state = hass.states.get("sensor.jane_next_assignment").state
+    assert dt_util.parse_datetime(state) == expected
 
 
 async def test_calendar_and_todo_present(hass: HomeAssistant):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -416,7 +416,25 @@ class _SycamoreNextBase(SycamoreStudentEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         item = self._next()
-        return dt_util.start_of_local_day(item["due"]) if item else None
+        if not item:
+            return None
+        due = item["due"]
+        # Sycamore assignments carry a due *date*, not a time. Anchoring to
+        # local midnight makes anything due *today* read as "this morning" (a
+        # past relative time). Land the timestamp on the configured due-time if
+        # the user set one (the same option the calendar uses), else the end of
+        # the due day — so a due-today item stays in the future until the day is
+        # actually over.
+        event_time = self.coordinator.event_time
+        if event_time is not None:
+            return datetime.combine(
+                due, event_time, tzinfo=dt_util.DEFAULT_TIME_ZONE
+            )
+        return (
+            dt_util.start_of_local_day(due)
+            + timedelta(days=1)
+            - timedelta(seconds=1)
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
