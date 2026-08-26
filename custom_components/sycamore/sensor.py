@@ -596,9 +596,13 @@ class SycamoreAccountSensor(SycamoreSchoolEntity, SensorEntity):
     """Balance of one Sycamore family account (e.g. cafeteria)."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_native_unit_of_measurement = "USD"
     _attr_suggested_display_precision = 2
     _attr_icon = "mdi:cash"
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Use the Home Assistant instance's configured currency."""
+        return self.hass.config.currency
 
     def __init__(
         self,

@@ -948,6 +948,8 @@ async def test_account_balance_sensor(hass: HomeAssistant):
     state = hass.states.get(eid)
     assert float(state.state) == 5.0
     assert state.attributes["device_class"] == "monetary"
+    # Unit follows the HA instance's configured currency, not a hardcoded USD.
+    assert state.attributes["unit_of_measurement"] == hass.config.currency
 
 
 class AccountsForbiddenClient(FakeClient):
