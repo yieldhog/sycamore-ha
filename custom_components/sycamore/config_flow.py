@@ -36,6 +36,7 @@ from .const import (
     CONF_CALENDAR_AUTOSYNC,
     CONF_CALENDAR_DAYS,
     CONF_CALENDAR_TARGETS,
+    CONF_ENABLE_ACCOUNTS,
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
@@ -52,6 +53,7 @@ from .const import (
     CONF_TOKEN,
     DEFAULT_CALENDAR_AUTOSYNC,
     DEFAULT_CALENDAR_DAYS,
+    DEFAULT_ENABLE_ACCOUNTS,
     DEFAULT_ENABLE_ATTENDANCE,
     DEFAULT_ENABLE_DISCIPLINE,
     DEFAULT_ENABLE_EVENTS,
@@ -495,6 +497,12 @@ class SycamoreOptionsFlow(OptionsFlow):
             vol.Optional(
                 CONF_ENABLE_NEWS,
                 default=current.get(CONF_ENABLE_NEWS, DEFAULT_ENABLE_NEWS),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_ACCOUNTS,
+                default=current.get(
+                    CONF_ENABLE_ACCOUNTS, DEFAULT_ENABLE_ACCOUNTS
+                ),
             ): bool,
             vol.Optional(
                 CONF_CALENDAR_AUTOSYNC,

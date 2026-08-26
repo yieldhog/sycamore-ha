@@ -91,6 +91,21 @@ async def test_transient_500_is_retried_then_succeeds(hass, monkeypatch):
     assert client._client.get.call_count == 2
 
 
+async def test_get_accounts_hits_family_endpoint(hass):
+    """async_get_accounts targets /Family/{id}/Accounts and returns the list."""
+    client = SycamoreClient(hass, "tok")
+    client._client = AsyncMock()
+    client._client.get = AsyncMock(
+        return_value=httpx.Response(
+            200, json=[{"ID": "cafeteria", "Name": "Cafeteria", "Amount": "5.00"}]
+        )
+    )
+    result = await client.async_get_accounts("647150")
+    assert result == [{"ID": "cafeteria", "Name": "Cafeteria", "Amount": "5.00"}]
+    called_url = client._client.get.call_args.args[0]
+    assert called_url.endswith("/Family/647150/Accounts")
+
+
 async def test_persistent_500_raises_after_retries(hass, monkeypatch):
     """A 5xx on every attempt eventually raises an API error (not forever)."""
     import custom_components.sycamore.api as api_mod
