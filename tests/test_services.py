@@ -49,6 +49,9 @@ class _Client:
     async def async_get_cafeteria(self, school_id):
         return {}
 
+    async def async_get_accounts(self, family_id):
+        return []
+
 
 async def _setup(hass: HomeAssistant, students=None, options=None):
     opts = {"focus_window_days": 7}

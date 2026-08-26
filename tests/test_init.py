@@ -72,6 +72,9 @@ class FakeClient:
     async def async_get_cafeteria(self, school_id):
         return []
 
+    async def async_get_accounts(self, family_id):
+        return []
+
 
 def _entry() -> MockConfigEntry:
     return MockConfigEntry(
@@ -920,3 +923,83 @@ async def test_discipline_enabled(hass: HomeAssistant):
     assert disc is not None
     assert disc.state == "1"
     assert disc.attributes["records"][0]["Type"] == "Detention"
+
+
+class AccountsClient(FakeClient):
+    """A family exposing a cafeteria account balance."""
+
+    async def async_get_accounts(self, family_id):
+        return [{"ID": "cafeteria", "Name": "Cafeteria", "Amount": "5.00"}]
+
+
+async def test_account_balance_sensor(hass: HomeAssistant):
+    """A family account becomes a monetary balance sensor on the School device."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", AccountsClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    eid = reg.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_account_cafeteria"
+    )
+    assert eid
+    state = hass.states.get(eid)
+    assert float(state.state) == 5.0
+    assert state.attributes["device_class"] == "monetary"
+    # Unit follows the HA instance's configured currency, not a hardcoded USD.
+    assert state.attributes["unit_of_measurement"] == hass.config.currency
+
+
+class AccountsForbiddenClient(FakeClient):
+    """A school without the Accounts scope: the endpoint returns 401/403."""
+
+    async def async_get_accounts(self, family_id):
+        from custom_components.sycamore.api import SycamoreAuthError
+
+        raise SycamoreAuthError("Token rejected for Family/1/Accounts (403)")
+
+
+async def test_accounts_forbidden_degrades_quietly(hass: HomeAssistant):
+    """A 401/403 on accounts must not fail setup or trigger reauth."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", AccountsForbiddenClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    reg = er.async_get(hass)
+    assert (
+        reg.async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_account_cafeteria"
+        )
+        is None
+    )
+
+
+async def test_accounts_disabled_skips_sensor(hass: HomeAssistant):
+    """With accounts_enabled off, no account sensor is created."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "token": "tok",
+            "family_id": "647150",
+            "school_id": None,
+            "students": [{"id": "111", "name": "Jane"}],
+        },
+        options={"accounts_enabled": False},
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.sycamore.SycamoreClient", AccountsClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    reg = er.async_get(hass)
+    assert (
+        reg.async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_account_cafeteria"
+        )
+        is None
+    )

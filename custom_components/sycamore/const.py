@@ -24,6 +24,7 @@ CONF_ENABLE_LUNCH = "lunch_enabled"
 CONF_ENABLE_DISCIPLINE = "discipline_enabled"
 CONF_ENABLE_EVENTS = "events_enabled"
 CONF_ENABLE_NEWS = "news_enabled"
+CONF_ENABLE_ACCOUNTS = "accounts_enabled"
 
 # Calendar sync (options). Per-student target calendar entities, plus an opt-in
 # auto-sync that reconciles after each refresh. Empty/unset target = no sync.
@@ -48,6 +49,10 @@ DEFAULT_ENABLE_DISCIPLINE = False
 DEFAULT_ENABLE_EVENTS = True
 # School news/announcements (needs a School ID); on by default when one is set.
 DEFAULT_ENABLE_NEWS = True
+# Family account balances (e.g. cafeteria). Many schools don't expose this
+# endpoint; on by default, but the coordinator degrades quietly when it's
+# unavailable (401/403/404) rather than erroring or forcing reauth.
+DEFAULT_ENABLE_ACCOUNTS = True
 DEFAULT_CALENDAR_AUTOSYNC = False
 DEFAULT_CALENDAR_DAYS = 14
 
@@ -62,7 +67,8 @@ DATA_ATTENDANCE = "attendance"
 DATA_DISCIPLINE = "discipline"
 DATA_DETAILS = "details"
 
-# Top-level (school) keys in coordinator data.
+# Top-level (school / family) keys in coordinator data.
 DATA_CAFETERIA = "cafeteria"
 DATA_SCHOOL_EVENTS = "school_events"
 DATA_NEWS = "news"
+DATA_ACCOUNTS = "accounts"

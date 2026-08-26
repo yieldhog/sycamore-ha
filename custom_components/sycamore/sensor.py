@@ -18,6 +18,7 @@ from homeassistant.util import slugify
 
 from . import SycamoreConfigEntry
 from .const import (
+    DATA_ACCOUNTS,
     DATA_ATTENDANCE,
     DATA_DETAILS,
     DATA_DISCIPLINE,
@@ -87,6 +88,7 @@ async def async_setup_entry(
     # failed/500'd at setup — so they must not be gated on the first refresh.
     known_grades: set[str] = set()
     known_details: set[str] = set()
+    known_accounts: set[str] = set()
 
     @callback
     def _add_dynamic_entities() -> None:
@@ -108,6 +110,18 @@ async def async_setup_entry(
                 known_details.add(sid)
                 new.append(SycamoreGradeLevelSensor(coordinator, sid, name))
                 new.append(SycamoreHomeroomTeacherSensor(coordinator, sid, name))
+        # Family account balances (e.g. cafeteria) arrive family-level and are
+        # added as they appear, like grade sensors — the endpoint may only
+        # succeed on a later refresh (or not at all, for schools without it).
+        if coordinator.accounts_enabled:
+            for account in (coordinator.data or {}).get(DATA_ACCOUNTS) or []:
+                acct_id = account["id"]
+                if acct_id in known_accounts:
+                    continue
+                known_accounts.add(acct_id)
+                new.append(
+                    SycamoreAccountSensor(coordinator, acct_id, account["name"])
+                )
         if new:
             async_add_entities(new)
 
@@ -576,6 +590,49 @@ class SycamoreLunchSensor(SycamoreSchoolEntity, SensorEntity):
                 for day in self._days()
             ],
         }
+
+
+class SycamoreAccountSensor(SycamoreSchoolEntity, SensorEntity):
+    """Balance of one Sycamore family account (e.g. cafeteria)."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:cash"
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Use the Home Assistant instance's configured currency."""
+        return self.hass.config.currency
+
+    def __init__(
+        self,
+        coordinator: SycamoreDataUpdateCoordinator,
+        account_id: str,
+        account_name: str,
+    ) -> None:
+        """Track one account by its stable Sycamore id."""
+        super().__init__(coordinator)
+        self._account_id = account_id
+        self._attr_name = f"{account_name} balance"
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_account_{slugify(account_id)}"
+        )
+
+    def _account(self) -> dict[str, Any] | None:
+        for account in (self.coordinator.data or {}).get(DATA_ACCOUNTS) or []:
+            if account["id"] == self._account_id:
+                return account
+        return None
+
+    @property
+    def native_value(self) -> float | None:
+        account = self._account()
+        return account["amount"] if account else None
+
+    @property
+    def available(self) -> bool:
+        """Available while the coordinator has this account in its last data."""
+        return super().available and self._account() is not None
 
 
 class SycamoreLastUpdatedSensor(SycamoreServiceEntity, SensorEntity):

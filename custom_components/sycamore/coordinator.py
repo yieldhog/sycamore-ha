@@ -23,18 +23,21 @@ from .api import (
 )
 from .const import (
     CONF_CALENDAR_TARGETS,
+    CONF_ENABLE_ACCOUNTS,
     CONF_ENABLE_ATTENDANCE,
     CONF_ENABLE_DISCIPLINE,
     CONF_ENABLE_EVENTS,
     CONF_ENABLE_LUNCH,
     CONF_ENABLE_NEWS,
     CONF_EVENT_TIME,
+    CONF_FAMILY_ID,
     CONF_FOCUS_WINDOW_DAYS,
     CONF_SCAN_INTERVAL_MINUTES,
     CONF_SCHOOL_ID,
     CONF_STUDENT_ID,
     CONF_STUDENT_NAME,
     CONF_STUDENTS,
+    DATA_ACCOUNTS,
     DATA_ATTENDANCE,
     DATA_CAFETERIA,
     DATA_DETAILS,
@@ -45,6 +48,7 @@ from .const import (
     DATA_NAME,
     DATA_NEWS,
     DATA_SCHOOL_EVENTS,
+    DEFAULT_ENABLE_ACCOUNTS,
     DEFAULT_ENABLE_ATTENDANCE,
     DEFAULT_ENABLE_DISCIPLINE,
     DEFAULT_ENABLE_EVENTS,
@@ -93,6 +97,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         options = entry.options
         self._students: list[dict[str, str]] = entry.data.get(CONF_STUDENTS, [])
         self._school_id: str | None = entry.data.get(CONF_SCHOOL_ID) or None
+        self._family_id: str | None = entry.data.get(CONF_FAMILY_ID) or None
         self._focus_window: int = int(
             options.get(CONF_FOCUS_WINDOW_DAYS, DEFAULT_FOCUS_WINDOW_DAYS)
         )
@@ -110,6 +115,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._news_enabled: bool = options.get(
             CONF_ENABLE_NEWS, DEFAULT_ENABLE_NEWS
+        )
+        self._accounts_enabled: bool = options.get(
+            CONF_ENABLE_ACCOUNTS, DEFAULT_ENABLE_ACCOUNTS
         )
         interval = int(
             options.get(CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES)
@@ -169,6 +177,11 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self._news_enabled
 
     @property
+    def accounts_enabled(self) -> bool:
+        """Whether the family account-balances endpoint/entities are enabled."""
+        return self._accounts_enabled
+
+    @property
     def event_time(self) -> dtime | None:
         """Optional time-of-day for homework/test events; None = all-day.
 
@@ -213,6 +226,9 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "news",
                     self._shape_news,
                 )
+            accounts: list[dict[str, Any]] | None = None
+            if self._family_id and self._accounts_enabled:
+                accounts = await self._fetch_family_accounts()
         except SycamoreAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except SycamoreConnectionError as err:
@@ -225,6 +241,7 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             DATA_CAFETERIA: cafeteria,
             DATA_SCHOOL_EVENTS: events,
             DATA_NEWS: news,
+            DATA_ACCOUNTS: accounts,
         }
 
     async def _fetch_school_section(
@@ -263,6 +280,41 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("School %s fetch failed; leaving unset", section)
             self.degraded.append(
                 {"student": "School", "section": section, "error": str(err)}
+            )
+            return None
+
+    async def _fetch_family_accounts(self) -> list[dict[str, Any]] | None:
+        """Fetch + shape family account balances, isolating their failures.
+
+        Unlike the per-student sections, a 401/403 here does *not* mean the token
+        is bad — it means this token/school simply lacks ``Accounts`` scope
+        (common; many schools don't expose the endpoint). Swallow that (and a
+        404) as "feature unavailable" so it never forces a spurious reauth: a
+        genuinely expired token still trips reauth via the per-student sections.
+        A transient transport/server error degrades the section quietly.
+        """
+        try:
+            return self._shape_accounts(
+                await self.client.async_get_accounts(self._family_id)
+            )
+        except SycamoreAuthError:
+            _LOGGER.debug(
+                "Family %s has no Accounts scope; treating as unavailable",
+                self._family_id,
+            )
+            return self._shape_accounts([])
+        except SycamoreApiError as err:
+            if err.status_code == 404:
+                return self._shape_accounts([])
+            _LOGGER.debug("Family accounts fetch failed; leaving unset")
+            self.degraded.append(
+                {"student": "Family", "section": "accounts", "error": str(err)}
+            )
+            return None
+        except SycamoreConnectionError as err:
+            _LOGGER.debug("Family accounts fetch failed; leaving unset")
+            self.degraded.append(
+                {"student": "Family", "section": "accounts", "error": str(err)}
             )
             return None
 
@@ -562,6 +614,29 @@ class SycamoreDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         items.sort(key=lambda t: t[0], reverse=True)
         return [shaped for _, shaped in items[:_MAX_NEWS_ITEMS]]
+
+    def _shape_accounts(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Turn ``/Family/{id}/Accounts`` rows into balance dicts.
+
+        Each row is ``{"ID", "Name", "Amount"}`` (Amount a decimal string like
+        "5.00"); shape to ``{"id", "name", "amount": float | None}``. A row with
+        no id and no name is skipped; the id (Sycamore's own, e.g. "cafeteria")
+        is kept stable so its sensor's unique_id doesn't churn.
+        """
+        out: list[dict[str, Any]] = []
+        for acct in raw or []:
+            acct_id = str(acct.get("ID") or "").strip()
+            name = (acct.get("Name") or "").strip()
+            if not acct_id and not name:
+                continue
+            out.append(
+                {
+                    "id": acct_id or name,
+                    "name": name or acct_id,
+                    "amount": to_float(acct.get("Amount")),
+                }
+            )
+        return out
 
     def _shape_cafeteria(self, raw: dict[str, Any]) -> list[dict[str, Any]]:
         """Turn the ``{MM/DD/YYYY: [meals]}`` payload into sorted per-day menus.

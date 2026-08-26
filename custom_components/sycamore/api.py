@@ -159,6 +159,15 @@ class SycamoreClient:
         """List the students in a family: GET /Family/{id}/Students."""
         return self._as_list(await self._get(f"Family/{family_id}/Students"))
 
+    async def async_get_accounts(self, family_id: str) -> list[dict[str, Any]]:
+        """GET /Family/{id}/Accounts — per-account balances (e.g. cafeteria).
+
+        Each item carries ``ID``, ``Name`` and ``Amount`` (a decimal string).
+        Not every school exposes this endpoint; the coordinator treats a missing
+        scope (401/403/404) as "feature unavailable" rather than an error.
+        """
+        return self._as_list(await self._get(f"Family/{family_id}/Accounts"))
+
     async def async_validate(self, family_id: str | None = None) -> None:
         """Raise SycamoreAuthError/ConnectionError if the token can't be used.
 
