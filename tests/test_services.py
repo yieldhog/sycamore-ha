@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.components.calendar import CalendarEntityFeature, CalendarEvent
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sycamore.const import CONF_CALENDAR_TARGETS, DOMAIN
+from custom_components.sycamore.const import (
+    CONF_CALENDAR_AUTOSYNC,
+    CONF_CALENDAR_TARGETS,
+    DOMAIN,
+)
 from custom_components.sycamore.services import _item_hash, async_run_autosync
 
 
@@ -275,6 +280,35 @@ async def test_autosync_reconciles_mapping(hass: HomeAssistant):
 
     assert len(created) == 1
     assert created[0]["entity_id"] == "calendar.school"
+
+
+async def test_initial_autosync_deferred_until_started(hass: HomeAssistant):
+    """The setup-time autosync waits for HA start.
+
+    Running it during a cold start can reconcile before another integration's
+    target calendar (e.g. a Local Calendar) is registered — a one-off "calendar
+    not found". Deferring to EVENT_HOMEASSISTANT_STARTED avoids that race, while
+    still firing immediately when autosync is enabled on an already-running HA.
+    """
+    hass.set_state(CoreState.not_running)
+    with patch(
+        "custom_components.sycamore.async_run_autosync", new=AsyncMock()
+    ) as run:
+        await _setup(
+            hass,
+            options={
+                CONF_CALENDAR_AUTOSYNC: True,
+                CONF_CALENDAR_TARGETS: {"111": "calendar.school"},
+            },
+        )
+        # Still starting: the initial reconcile hasn't fired yet.
+        assert run.call_count == 0
+
+        # Once HA is fully started, it runs exactly once.
+        hass.set_state(CoreState.running)
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+        await hass.async_block_till_done()
+        assert run.call_count == 1
 
 
 class _StatefulCalendar:
