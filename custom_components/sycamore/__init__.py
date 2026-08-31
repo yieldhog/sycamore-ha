@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
 from .api import SycamoreClient
@@ -50,8 +51,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: SycamoreConfigEntry) -> 
             hass.async_create_task(async_run_autosync(hass, entry))
 
         entry.async_on_unload(coordinator.async_add_listener(_autosync))
-        # Run once now so enabling it doesn't wait for the next poll.
-        hass.async_create_task(async_run_autosync(hass, entry))
+
+        # Run once after Home Assistant has finished starting, so every calendar
+        # from other integrations is registered before the first reconcile. On a
+        # cold start Sycamore can otherwise finish loading and sync before a
+        # target calendar (e.g. a Local Calendar) exists yet — a one-off "calendar
+        # ... not found" that self-heals on the next poll. `async_at_started`
+        # fires immediately when HA is already running (e.g. autosync enabled at
+        # runtime via options), so enabling it still doesn't wait for the poll.
+        @callback
+        def _autosync_at_start(_hass: HomeAssistant) -> None:
+            hass.async_create_task(async_run_autosync(hass, entry))
+
+        entry.async_on_unload(async_at_started(hass, _autosync_at_start))
 
     return True
 
